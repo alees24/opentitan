@@ -120,7 +120,7 @@ void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
               res = kUsbTestutilsXfrResultFailed;
             }
           }
-          if (done || res != kUsbTestutilsXfrResultOk) {
+          if (done) {
             // Larger buffer transfer now completed; forget the buffer
             buf->buffer = NULL;
           }
@@ -254,11 +254,6 @@ bool usb_testutils_buffer_send(usb_testutils_ctx_t *ctx, uint8_t ep,
   if (buf->buffer) {
     // If there is an in-progress transfer, then we cannot accept another
     return false;
-  }
-
-  // Anything at all to do?
-  if (!length && !(flags & kUsbTestutilsXfrEmployZLP)) {
-    return true;
   }
 
   // Describe this buffer
