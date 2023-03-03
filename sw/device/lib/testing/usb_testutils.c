@@ -14,6 +14,76 @@
 static dif_usbdev_t usbdev;
 static dif_usbdev_buffer_pool_t buffer_pool;
 
+// Internal function to create the packet that will form the next part of a
+// larger buffer transfer
+static bool usb_testutils_part_prepare(usb_testutils_ctx_t *ctx,
+                                       usb_testutils_buffer_t *buf,
+                                       dif_usbdev_buffer_t *next_part,
+                                       bool *last) {
+  CHECK(ctx && buf && last);
+
+  // Allocate and fill a packet buffer
+  dif_result_t result =
+      dif_usbdev_buffer_request(ctx->dev, ctx->buffer_pool, next_part);
+  if (result != kDifOk) {
+    return false;
+  }
+
+  // Determine the maximum bytes/packet
+  unsigned max_packet = USBDEV_MAX_PACKET_SIZE;
+  if (buf->flags & kUsbTestutilsXfrMaxPacketSupplied) {
+    max_packet = (unsigned)(buf->flags & kUsbTestutilsXfrMaxPacketMask);
+  }
+
+  // How much are we sending this time?
+  unsigned part_len = buf->length - buf->offset;
+  if (part_len > max_packet) {
+    part_len = max_packet;
+  }
+  size_t bytes_written = 0U;
+  if (part_len) {
+    CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->dev, next_part,
+                                         &buf->buffer[buf->offset], part_len,
+                                         &bytes_written));
+  }
+  //  Is this the last packet?
+  uint32_t next_offset = buf->offset + bytes_written;
+  *last = true;
+  if (bytes_written == max_packet) {
+    if (next_offset < buf->length || (buf->flags & kUsbTestutilsXfrEmployZLP)) {
+      *last = false;
+    }
+  } else {
+    CHECK(bytes_written < max_packet);
+  }
+
+  buf->offset = next_offset;
+  return true;
+}
+
+// Internal function to perform the next part of a larger buffer transfer
+static bool usb_testutils_buffer_part(usb_testutils_ctx_t *ctx, uint8_t ep,
+                                      usb_testutils_buffer_t *buf) {
+  // Do we need to prepare a packet?
+  if (!buf->next_valid &&
+      !usb_testutils_part_prepare(ctx, buf, &buf->next_part, &buf->last)) {
+    return false;
+  }
+
+  // Send the existing prepared packet
+  CHECK_DIF_OK(dif_usbdev_send(ctx->dev, ep, &buf->next_part));
+  buf->next_valid = false;
+
+  // If we're double-buffering, request and fill another buffer immediately;
+  // we'll then be able to supply it much more promptly later...
+  if ((buf->flags & kUsbTestutilsXfrDoubleBuffered) && !buf->last) {
+    buf->next_valid =
+        usb_testutils_part_prepare(ctx, buf, &buf->next_part, &buf->last);
+  }
+
+  return true;
+}
+
 void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
   uint32_t istate;
 
@@ -21,16 +91,7 @@ void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
   CHECK_DIF_OK(dif_usbdev_irq_get_state(ctx->dev, &istate));
 
   if (!istate) {
-    // Nothing new to do right now, but keep buffers available for reception
-    CHECK_DIF_OK(dif_usbdev_fill_available_fifo(ctx->dev, ctx->buffer_pool));
     return;
-  }
-
-  // Record bus frame
-  if ((istate & (1u << kDifUsbdevIrqFrame))) {
-    // The first bus frame is 1
-    CHECK_DIF_OK(dif_usbdev_status_get_frame(ctx->dev, &ctx->frame));
-    ctx->got_frame = true;
   }
 
   // Process IN completions first so we get the fact that send completed
@@ -40,28 +101,47 @@ void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
     uint16_t sentep;
     CHECK_DIF_OK(dif_usbdev_get_tx_sent(ctx->dev, &sentep));
     TRC_C('a' + sentep);
-    for (unsigned ep = 0; ep < USBDEV_NUM_ENDPOINTS; ep++) {
-      if (sentep & (1 << ep)) {
+    unsigned ep = 0u;
+    while (sentep && ep < USBDEV_NUM_ENDPOINTS) {
+      if (sentep & (1u << ep)) {
         // Free up the buffer and optionally callback
         CHECK_DIF_OK(
             dif_usbdev_clear_tx_status(ctx->dev, ctx->buffer_pool, ep));
 
-        if (ctx->in[ep].tx_done_callback) {
-          ctx->in[ep].tx_done_callback(ctx->in[ep].ep_ctx);
+        // If we have a larger transfer in progress, continue with that
+        usb_testutils_buffer_t *buf = &ctx->in[ep].buf;
+        usb_testutils_xfr_result_t res = kUsbTestutilsXfrResultOk;
+        bool done = true;
+        if (buf->buffer) {
+          if (buf->next_valid || !buf->last) {
+            if (usb_testutils_buffer_part(ctx, ep, buf)) {
+              done = false;
+            } else {
+              res = kUsbTestutilsXfrResultFailed;
+            }
+          }
+          if (done || res != kUsbTestutilsXfrResultOk) {
+            // Larger buffer transfer now completed; forget the buffer
+            buf->buffer = NULL;
+          }
         }
+        // Notify that we've sent the single packet, or larger buffer transfer
+        // is now complete
+        if (done && ctx->in[ep].tx_done_callback) {
+          ctx->in[ep].tx_done_callback(ctx->in[ep].ep_ctx, res);
+        }
+        sentep &= ~(1u << ep);
       }
+      ep++;
     }
-
-    // Clear the interrupt sooner so that we can respond more promptly to
-    // subsequent transmitted packets
-    CHECK_DIF_OK(dif_usbdev_irq_acknowledge(ctx->dev, kDifUsbdevIrqPktSent));
-    istate &= ~(1u << kDifUsbdevIrqPktSent);
   }
 
   // Keep buffers available for packet reception
   CHECK_DIF_OK(dif_usbdev_fill_available_fifo(ctx->dev, ctx->buffer_pool));
 
   if (istate & (1u << kDifUsbdevIrqPktReceived)) {
+    // TODO: we run the risk of starving the IN side here if the rx_callback(s)
+    // are time-consuming
     while (true) {
       bool is_empty;
       CHECK_DIF_OK(dif_usbdev_status_get_rx_fifo_empty(ctx->dev, &is_empty));
@@ -103,6 +183,13 @@ void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
 
   // Clear the interrupts that we've received and handled
   CHECK_DIF_OK(dif_usbdev_irq_acknowledge_state(ctx->dev, istate));
+
+  // Record bus frame
+  if ((istate & (1u << kDifUsbdevIrqFrame))) {
+    // The first bus frame is 1
+    CHECK_DIF_OK(dif_usbdev_status_get_frame(ctx->dev, &ctx->frame));
+    ctx->got_frame = true;
+  }
 
   // Note: LinkInErr will be raised in response to a packet being NAKed by the
   // host which is not expected behavior on a physical USB but this is something
@@ -158,10 +245,43 @@ void usb_testutils_poll(usb_testutils_ctx_t *ctx) {
   // TODO Errors? What Errors?
 }
 
-void usb_testutils_in_endpoint_setup(usb_testutils_ctx_t *ctx, uint8_t ep,
-                                     void *ep_ctx, void (*tx_done)(void *),
-                                     void (*flush)(void *),
-                                     void (*reset)(void *)) {
+bool usb_testutils_buffer_send(usb_testutils_ctx_t *ctx, uint8_t ep,
+                               const uint8_t *data, uint32_t length,
+                               usb_testutils_xfr_flags_t flags) {
+  CHECK(ep < USBDEV_NUM_ENDPOINTS);
+
+  usb_testutils_buffer_t *buf = &ctx->in[ep].buf;
+  if (buf->buffer) {
+    // If there is an in-progress transfer, then we cannot accept another
+    return false;
+  }
+
+  // Anything at all to do?
+  if (!length && !(flags & kUsbTestutilsXfrEmployZLP)) {
+    return true;
+  }
+
+  // Describe this buffer
+  buf->buffer = data;
+  buf->offset = 0U;
+  buf->length = length;
+  buf->flags = flags;
+  buf->next_valid = false;
+
+  if (!usb_testutils_buffer_part(ctx, ep, buf)) {
+    // Forget about the attempted transfer
+    buf->buffer = NULL;
+    return false;
+  }
+
+  // Buffer transfer is underway...
+  return true;
+}
+
+void usb_testutils_in_endpoint_setup(
+    usb_testutils_ctx_t *ctx, uint8_t ep, void *ep_ctx,
+    void (*tx_done)(void *, usb_testutils_xfr_result_t), void (*flush)(void *),
+    void (*reset)(void *)) {
   ctx->in[ep].ep_ctx = ep_ctx;
   ctx->in[ep].tx_done_callback = tx_done;
   ctx->in[ep].flush = flush;
@@ -217,7 +337,7 @@ void usb_testutils_out_endpoint_setup(
 void usb_testutils_endpoint_setup(
     usb_testutils_ctx_t *ctx, uint8_t ep,
     usb_testutils_out_transfer_mode_t out_mode, void *ep_ctx,
-    void (*tx_done)(void *),
+    void (*tx_done)(void *, usb_testutils_xfr_result_t),
     void (*rx)(void *, dif_usbdev_rx_packet_info_t, dif_usbdev_buffer_t),
     void (*flush)(void *), void (*reset)(void *)) {
   usb_testutils_in_endpoint_setup(ctx, ep, ep_ctx, tx_done, flush, reset);
