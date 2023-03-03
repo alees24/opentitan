@@ -30,6 +30,18 @@ cc_library(
 )
 
 cc_library(
+    name = "fors",
+    srcs = ["fors.c"],
+    hdrs = ["fors.h"],
+    deps = [
+        ":address",
+        ":hash",
+        ":thash",
+        ":utils",
+    ],
+)
+
+cc_library(
     name = "hash",
     srcs = ["hash_shake.c"],
     hdrs = ["hash.h"],
@@ -70,5 +82,39 @@ cc_library(
         ":thash",
         "//sw/device/lib/base:memory",
         "//sw/device/silicon_creator/lib:error",
+    ],
+)
+
+cc_library(
+    name = "verify",
+    srcs = ["verify.c"],
+    hdrs = ["verify.h"],
+    deps = [
+        ":address",
+        ":context",
+        ":fors",
+        ":hash",
+        ":params",
+        ":thash",
+        ":utils",
+        ":wots",
+        "//sw/device/lib/base:memory",
+        "//sw/device/silicon_creator/lib:error",
+    ],
+)
+
+cc_library(
+    name = "wots",
+    srcs = ["wots.c"],
+    hdrs = ["wots.h"],
+    deps = [
+        ":address",
+        ":hash",
+        ":params",
+        ":thash",
+        ":utils",
+        "//sw/device/lib/base:memory",
+        "//sw/device/silicon_creator/lib:error",
+        "//sw/device/silicon_creator/lib/drivers:kmac",
     ],
 )

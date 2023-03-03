@@ -21,9 +21,23 @@ otbn_library(
 )
 
 otbn_library(
+    name = "div",
+    srcs = [
+        "div.s",
+    ],
+)
+
+otbn_library(
     name = "field25519",
     srcs = [
         "field25519.s",
+    ],
+)
+
+otbn_library(
+    name = "gcd",
+    srcs = [
+        "gcd.s",
     ],
 )
 
@@ -137,6 +151,16 @@ otbn_binary(
     name = "p256_ecdsa_sca",
     srcs = [
         "p256_ecdsa_sca.s",
+    ],
+    deps = [
+        ":p256",
+    ],
+)
+
+otbn_binary(
+    name = "p256_key_from_seed_sca",
+    srcs = [
+        "p256_key_from_seed_sca.s",
     ],
     deps = [
         ":p256",

@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::app::config::process_config_file;
 use crate::app::{TransportWrapper, TransportWrapperBuilder};
 use crate::transport::hyperdebug::c2d2::C2d2Flavor;
-use crate::transport::hyperdebug::StandardFlavor;
+use crate::transport::hyperdebug::CW310Flavor;
 use crate::transport::{EmptyTransport, Transport};
 use crate::util::parse_int::ParseInt;
 
@@ -24,31 +24,31 @@ mod verilator;
 #[derive(Debug, StructOpt)]
 pub struct BackendOpts {
     #[structopt(long, default_value = "", help = "Name of the debug interface")]
-    interface: String,
+    pub interface: String,
 
     #[structopt(long, parse(try_from_str = u16::from_str),
                 help="USB Vendor ID of the interface")]
-    usb_vid: Option<u16>,
+    pub usb_vid: Option<u16>,
     #[structopt(long, parse(try_from_str = u16::from_str),
                 help="USB Product ID of the interface")]
-    usb_pid: Option<u16>,
+    pub usb_pid: Option<u16>,
     #[structopt(long, help = "USB serial number of the interface")]
-    usb_serial: Option<String>,
+    pub usb_serial: Option<String>,
 
     #[structopt(flatten)]
-    cw310_opts: cw310::Cw310Opts,
+    pub cw310_opts: cw310::Cw310Opts,
 
     #[structopt(flatten)]
-    verilator_opts: verilator::VerilatorOpts,
+    pub verilator_opts: verilator::VerilatorOpts,
 
     #[structopt(flatten)]
-    proxy_opts: proxy::ProxyOpts,
+    pub proxy_opts: proxy::ProxyOpts,
 
     #[structopt(flatten)]
-    ti50emulator_opts: ti50emulator::Ti50EmulatorOpts,
+    pub ti50emulator_opts: ti50emulator::Ti50EmulatorOpts,
 
     #[structopt(long, number_of_values(1), help = "Configuration files")]
-    conf: Vec<PathBuf>,
+    pub conf: Vec<PathBuf>,
 }
 
 #[derive(Error, Debug)]
@@ -76,7 +76,7 @@ pub fn create(args: &BackendOpts) -> Result<TransportWrapper> {
             Some(Path::new("/__builtin__/opentitan_ultradebug.json")),
         ),
         "hyperdebug" => (
-            hyperdebug::create::<StandardFlavor>(args)?,
+            hyperdebug::create::<CW310Flavor>(args)?,
             Some(Path::new("/__builtin__/hyperdebug_cw310.json")),
         ),
         "hyperdebug_dfu" => (hyperdebug::create_dfu(args)?, None),

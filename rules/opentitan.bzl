@@ -33,12 +33,12 @@ _targets_compatible_with = {
 
 # This constant holds a dictionary of per-device dependencies which are used to
 # generate slightly different binaries for each hardware target, including two
-# simulation platforms (DV and Verilator), and two FPGA platforms (NexysVideo
+# simulation platforms (DV and Verilator), and two FPGA platforms (CW305
 # and CW310).
 PER_DEVICE_DEPS = {
     "sim_verilator": ["@//sw/device/lib/arch:sim_verilator"],
     "sim_dv": ["@//sw/device/lib/arch:sim_dv"],
-    "fpga_nexysvideo": ["@//sw/device/lib/arch:fpga_nexysvideo"],
+    "fpga_cw305": ["@//sw/device/lib/arch:fpga_cw305"],
     "fpga_cw310": ["@//sw/device/lib/arch:fpga_cw310"],
 }
 
@@ -48,6 +48,8 @@ DEFAULT_SIGNING_KEYS = {
     "fake_dev_key_0": "@//sw/device/silicon_creator/rom/keys/fake:dev_private_key_0",
     "fake_prod_key_0": "@//sw/device/silicon_creator/rom/keys/fake:prod_private_key_0",
     "unauthorized_0": "@//sw/device/silicon_creator/rom/keys:unauthorized_private_key_0",
+    "fake_rom_ext_test_key_0": "@//sw/device/silicon_creator/rom_ext/keys/fake:rom_ext_test_private_key_0",
+    "fake_rom_ext_dev_key_0": "@//sw/device/silicon_creator/rom_ext/keys/fake:rom_ext_dev_private_key_0",
 }
 
 def _obj_transform_impl(ctx):

@@ -239,6 +239,30 @@
               --out {run_dir}/otp_ctrl_img_test_unlocked0.vmem \
               {gen_otp_images_cmd_opts}
         ''',
+        '''{gen_otp_images_cmd} \
+              --img-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_test_unlocked1.hjson \
+              --add-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_hw_cfg.hjson \
+              --out {run_dir}/otp_ctrl_img_test_unlocked1.vmem \
+              {gen_otp_images_cmd_opts}
+        ''',
+        '''{gen_otp_images_cmd} \
+              --img-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_test_unlocked2.hjson \
+              --add-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_hw_cfg.hjson \
+              --out {run_dir}/otp_ctrl_img_test_unlocked2.vmem \
+              {gen_otp_images_cmd_opts}
+        ''',
+        '''{gen_otp_images_cmd} \
+              --img-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_test_locked0.hjson \
+              --add-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_hw_cfg.hjson \
+              --out {run_dir}/otp_ctrl_img_test_locked0.vmem \
+              {gen_otp_images_cmd_opts}
+        ''',
+        '''{gen_otp_images_cmd} \
+              --img-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_test_locked1.hjson \
+              --add-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_hw_cfg.hjson \
+              --out {run_dir}/otp_ctrl_img_test_locked1.vmem \
+              {gen_otp_images_cmd_opts}
+        ''',
          '''{gen_otp_images_cmd} \
               --img-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_dev.hjson \
               --add-cfg {gen_otp_images_cfg_dir}/otp_ctrl_img_creator_sw_cfg.hjson \
@@ -1750,9 +1774,15 @@
     {
       name: chip_sw_power_virus
       uvm_test_seq: chip_sw_power_virus_vseq
-      sw_images: ["//sw/device/tests:power_virus_systemtest:1"]
+      sw_images: [
+        "//sw/device/tests:power_virus_systemtest:1",
+        "//sw/device/tests:power_virus_systemtest_otp_img_rma:4",
+      ]
       en_run_modes: ["sw_test_mode_test_rom"]
-      run_opts: ["+sw_test_timeout_ns=200_000_000"]
+      run_opts: [
+        "+sw_test_timeout_ns=200_000_000",
+        "+use_otp_image=OtpTypeCustom",
+      ]
       run_timeout_mins: 300
     }
   ]

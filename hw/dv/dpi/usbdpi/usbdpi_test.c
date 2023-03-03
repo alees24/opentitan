@@ -6,16 +6,36 @@
 
 #include <assert.h>
 
+#include "usbdpi_stream.h"
+
 // Test-specific initialization
 void usbdpi_test_init(usbdpi_ctx_t *ctx) {
   // Test-specific initialization code
-  bool bOK = false;
+  bool ok = false;
   switch (ctx->test_number) {
     case 0:
       // The simple smoke test (usbdev_test) does not require any parameters
       // or special initialization at present
-      bOK = true;
+      ok = true;
       break;
+
+    // Initialize streaming test
+    case 1: {
+      // Number of concurrent byte streams
+      const unsigned nstreams = ctx->test_arg[0] & 0xfU;
+      // Poll device for IN packets in streaming test?
+      bool retrieve = (ctx->test_arg[0] & 0x10U) != 0U;
+      // Checking of received data against expected LFSR output
+      bool checking = (ctx->test_arg[0] & 0x20U) != 0U;
+      // Request retrying of IN packets, feigning error
+      bool retrying = (ctx->test_arg[0] & 0x40U) != 0U;
+      // Attempt to send OUT packets to device
+      bool send = (ctx->test_arg[0] & 0x80U) != 0U;
+
+      if (nstreams <= USBDPI_MAX_STREAMS) {
+        ok = streams_init(ctx, nstreams, retrieve, checking, retrying, send);
+      }
+    } break;
 
     default:
       assert(!"Unrecognised/unsupported test in USBDPI");
@@ -23,7 +43,7 @@ void usbdpi_test_init(usbdpi_ctx_t *ctx) {
   }
 
   // TODO - commute this to a proper test failure at run time
-  assert(bOK);
+  assert(ok);
 }
 
 // Return the next step in the test sequence

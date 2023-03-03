@@ -38,6 +38,50 @@ otbn_sim_test(
 )
 
 otbn_sim_test(
+    name = "div_large_test",
+    srcs = [
+        "div_large_test.s",
+    ],
+    exp = "div_large_test.exp",
+    deps = [
+        "//sw/otbn/crypto:div",
+    ],
+)
+
+otbn_sim_test(
+    name = "div_medium_test",
+    srcs = [
+        "div_medium_test.s",
+    ],
+    exp = "div_medium_test.exp",
+    deps = [
+        "//sw/otbn/crypto:div",
+    ],
+)
+
+otbn_sim_test(
+    name = "div_small_test",
+    srcs = [
+        "div_small_test.s",
+    ],
+    exp = "div_small_test.exp",
+    deps = [
+        "//sw/otbn/crypto:div",
+    ],
+)
+
+otbn_consttime_test(
+    name = "div_consttime",
+    # All secrets are stored in DMEM; timing is permitted to depend on the
+    # number of limbs.
+    secrets = ["dmem"],
+    subroutine = "div",
+    deps = [
+        ":div_small_test",
+    ],
+)
+
+otbn_sim_test(
     name = "field25519_test",
     srcs = [
         "field25519_test.s",
@@ -73,6 +117,38 @@ otbn_consttime_test(
 )
 
 otbn_sim_test(
+    name = "gcd_small_test",
+    srcs = [
+        "gcd_small_test.s",
+    ],
+    exp = "gcd_small_test.exp",
+    deps = [
+        "//sw/otbn/crypto:gcd",
+    ],
+)
+
+otbn_sim_test(
+    name = "gcd_large_test",
+    srcs = [
+        "gcd_large_test.s",
+    ],
+    exp = "gcd_large_test.exp",
+    deps = [
+        "//sw/otbn/crypto:gcd",
+    ],
+)
+
+otbn_consttime_test(
+    name = "gcd_consttime",
+    # All inputs are in DMEM; no registers are secret.
+    secrets = ["dmem"],
+    subroutine = "gcd",
+    deps = [
+        ":gcd_small_test",
+    ],
+)
+
+otbn_sim_test(
     name = "p256_base_mult_test",
     srcs = [
         "p256_base_mult_test.s",
@@ -96,6 +172,25 @@ otbn_consttime_test(
     subroutine = "p256_isoncurve",
     deps = [
         "//sw/otbn/crypto:p256_ecdsa",
+    ],
+)
+
+otbn_consttime_test(
+    name = "p256_key_from_seed_consttime",
+    subroutine = "p256_key_from_seed",
+    deps = [
+        "//sw/otbn/crypto:p256_ecdsa",
+    ],
+)
+
+otbn_sim_test(
+    name = "p256_key_from_seed_test",
+    srcs = [
+        "p256_key_from_seed_test.s",
+    ],
+    exp = "p256_key_from_seed_test.exp",
+    deps = [
+        "//sw/otbn/crypto:p256",
     ],
 )
 

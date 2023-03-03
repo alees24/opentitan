@@ -87,6 +87,26 @@
     }
 
     {
+      name: combo_detect_with_pre_cond
+      desc: '''
+            Verify the combo detection with random action and precondition.
+
+            * Randomly set the input keys combination as precondition by configuring COM_PRE_SEL_CTL_0-3 register.
+            * Randomly set the input keys combination for combo detection by configuring COM_SEL_CTL_0-3 register.
+            * Set the random combo precondition duration via the COM_PRE_DET_CTL_0-3 register.
+            * Set the random combo duration via the COM_DET_CTL_0-3 register.
+            * Randomly select the action to be taken by configuring COM_OUT_CTL_0-3 register.
+            * Set the pulse width via EC_RST_CTL register.
+            * Randomly set the input keys, such that precondition and subsequent combo detection logic are activated randomly.
+            * Read the COMBO_INTR_STATUS register to check whether an interrupt is correctly raised for all the combinations.
+              Clear the interrupt in case it was raised.
+            * Check for bat_disable, rst_req or wake_up_o assertion depending on COM_OUT_CTL_0-3 register
+            '''
+      stage: V2
+      tests: ["sysrst_ctrl_combo_detect_with_pre_cond"]
+    }
+
+    {
       name: auto_block_key_outputs
       desc: '''
             Verify the auto block key output feature.
@@ -203,21 +223,10 @@
     {
       name: sysrst_ctrl_combo_detect_action_cg
       desc: '''
-            Cover all the combo detect actions.
+            Cover all the combo detect, combo_sel and combo_pre_sel actions.
             Create 4 instance to cover the combo detect register [0-3].
             Sample the covergroup when the event occurs.
-            Cross the covergroup with combo_detect_sel_cg to cover all the input combination with
-            all the possible combo_detect actions.
-            '''
-    }
-    {
-      name: sysrst_ctrl_combo_detect_sel_cg
-      desc: '''
-            Cover all the combo detect input select.
-            Cross all the inputs to cover all the combos.
-            Create 4 instance to cover the combo detect register [0-3].
-            Sample the covergroup when the event occurs.
-            Cross the covergroup with combo_detect_action_cg to cover all the input combination with
+            Cross the covergroup with combo_detect_sel_cg and combo_pre_sel_cg to cover all the input combination with
             all the possible combo_detect actions.
             '''
     }
@@ -226,6 +235,13 @@
       desc: '''
             Cover the combo detect debounce timer.
             Create 4 instance to cover the combo detect register [0-3].
+            '''
+    }
+    {
+      name: sysrst_ctrl_combo_precondition_det_cg
+      desc: '''
+            Cover the combo detect precondition debounce timer.
+            Create 4 instance to cover the combo detect precondition register [0-3].
             '''
     }
     {
