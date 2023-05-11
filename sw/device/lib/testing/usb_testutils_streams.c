@@ -25,7 +25,13 @@ static const enum {
   kReadMethodNone = 0u,  // Just discard the data; do not read it from usbdev
   kReadMethodStandard,   // Use standard dif_usbdev_buffer_read() function
   kReadMethodFaster      // Faster implementation
-} read_method = kReadMethodStandard;
+} read_method = kReadMethodFaster;
+
+static const enum {
+  kWriteMethodNone = 0u,
+  kWriteMethodStandard,
+  kWriteMethodFaster
+} write_method = kWriteMethodFaster;
 
 /**
  * Diagnostic logging; expensive
@@ -117,9 +123,17 @@ static uint32_t buffer_sig_create(usb_testutils_streams_ctx_t *ctx,
   }
 
   size_t bytes_written;
-  CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->usbdev->dev, buf, (uint8_t *)&sig,
-                                       sizeof(sig), &bytes_written));
-  CHECK(bytes_written == sizeof(sig));
+// TODO: switch
+  if (write_method == kWriteMethodFaster) {
+    CHECK_DIF_OK(dif_usbdev_buffer_raw_write(ctx->usbdev->dev, buf->id, (uint8_t *)&sig, sizeof(sig)));
+    buf->offset += sizeof(sig);
+    buf->remaining_bytes -= sizeof(sig);
+    bytes_written = sizeof(sig);
+  } else {
+    CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->usbdev->dev, buf, (uint8_t *)&sig,
+                                         sizeof(sig), &bytes_written));
+    CHECK(bytes_written == sizeof(sig));
+  }
 
   // Note: stream signature is not included in the count of bytes transferred
   // so we do not advance tx_bytes
@@ -238,10 +252,17 @@ static void buffer_fill(usb_testutils_streams_ctx_t *ctx, usbdev_stream_t *s,
   }
 
   size_t bytes_written;
-
+// TODO: switch
+  if (write_method == kWriteMethodFaster) {
+    CHECK_DIF_OK(dif_usbdev_buffer_raw_write(ctx->usbdev->dev, buf->id, data, num_bytes));
+    buf->offset = num_bytes;
+    buf->remaining_bytes = num_bytes;
+    bytes_written = num_bytes;
+  } else {
   CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->usbdev->dev, buf, data, num_bytes,
                                        &bytes_written));
   CHECK(bytes_written == num_bytes);
+  }
   s->tx_bytes += bytes_written;
 }
 
@@ -263,9 +284,15 @@ static void buffer_check(usb_testutils_streams_ctx_t *ctx, usbdev_stream_t *s,
     //        only the DIF accesses it directly. when we consume the final bytes
     //        from the read buffer, it is automatically returned to the buffer
     //        pool.
+// TODO: switch
+if (read_method == kReadMethodFaster) {
+  CHECK_DIF_OK(dif_usbdev_buffer_raw_read(usbdev->dev, buf.id, data, len));
+  CHECK_DIF_OK(dif_usbdev_buffer_return(usbdev->dev, usbdev->buffer_pool, &buf));  
+} else {
     CHECK_DIF_OK(dif_usbdev_buffer_read(usbdev->dev, usbdev->buffer_pool, &buf,
                                         data, len, &bytes_read));
     CHECK(bytes_read == len);
+}
 
     if (s->verbose && log_traffic) {
       buffer_dump(data, bytes_read);
