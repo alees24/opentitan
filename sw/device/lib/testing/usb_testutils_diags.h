@@ -13,9 +13,114 @@
 // Employ faster memory copying routines to/from the packet buffer
 //   (the standard dif_usbdev_buffer_write/read functionality should normally be
 //    employed, but it is inefficient; the replacement routines better model the
-//    attainable performance)
+//    attainable performance.)
 #ifndef USBUTILS_MEM_FASTER
 #define USBUTILS_MEM_FASTER 1
+#endif
+
+// Implement low-impact tracing of software execution, permitting the software
+//   and hardware behavior to be married, hopefully without modifying the
+//   behavior/performance, particularly in top-level simulation.
+#define USBUTILS_FUNCTION_POINTS 0
+
+// Record the function points to a memory buffer instead, for use where test
+//   hardware is unavailable, eg. FPGA builds.
+#define USBUTILS_FUNCPT_USE_BUFFER USB_FPGA
+
+#if USBUTILS_FUNCTION_POINTS
+// For access to ibex_mcycle_read()
+#include "sw/device/lib/runtime/ibex.h"
+
+// Function point file numbers
+//   (used to index filename table in usb_testutils_diags.c)
+#define USBUTILS_FUNCPT_FILE_DIF_USBDEV 0x01U
+#define USBUTILS_FUNCPT_FILE_USB_TESTUTILS 0x02U
+#define USBUTILS_FUNCPT_FILE_USB_CONTROLEP 0x03U
+#define USBUTILS_FUNCPT_FILE_USB_SIMPLESER 0x04U
+#define USBUTILS_FUNCPT_FILE_USBDEV_TEST 0x05U
+#define USBUTILS_FUNCPT_FILE_USBDEV_STRM_TEST 0x06U
+#define USBUTILS_FUNCPT_FILE_USBDEV_SUSP_TEST 0x07U
+
+// Number of entrys in the function point buffer.
+#define USBUTILS_FUNCPT_LOG_ENTRIES 0x1000U
+// Total size of function point buffer in bytes.
+#define USBUTILS_FUNCPT_LOG_SIZE (USBUTILS_FUNCPT_LOG_ENTRIES * 4U)
+
+#define USBUTILS_FUNCPT_ENTRY_SIGNATURE 0xAA55FF99U
+/**
+ * Entry in function point stream
+ */
+typedef struct {
+  /**
+   * Signature word indicating a valid buffer entry.
+   */
+  uint32_t sig;
+  /**
+   * Value of cycle counter when the function point was reached.
+   */
+  uint32_t time;
+  /**
+   * Combined file indicator (bits 31:16) and funcion point number (15:0).
+   */
+  uint32_t file_point;
+  /**
+   * Data associated with the function point.
+   */
+  uint32_t data;
+} funcpt_entry_t;
+
+#if USBUTILS_FUNCPT_USE_BUFFER
+/**
+ * Current index into function point circular buffer.
+ */
+extern volatile unsigned usbutils_fpt_next;
+/**
+ * Function point circular buffer.
+ */
+extern uint32_t usbutils_fpt_log[];
+
+// Record function points to RAM buffer for deferred reporting, eg. FPGA
+// void USBUTILS_FUNCPT(uint32_t, uintptr_t);
+#define USBUTILS_FUNCPT(pt, d)                                    \
+  {                                                               \
+    unsigned idx = usbutils_fpt_next;                             \
+    usbutils_fpt_next =                                           \
+        (idx >= USBUTILS_FUNCPT_LOG_SIZE - 4U) ? 0U : (idx + 4U); \
+    funcpt_entry_t *e = (funcpt_entry_t *)&usbutils_fpt_log[idx]; \
+    e->sig = USBUTILS_FUNCPT_ENTRY_SIGNATURE;                     \
+    e->time = (uint32_t)ibex_mcycle_read();                       \
+    e->file_point = (USBUTILS_FUNCPT_FILE << 16) | pt;            \
+    e->data = (uint32_t)(d);                                      \
+  }
+#else
+// Emit function points to special address for waveform viewing in simulation
+#define USBUTILS_FUNCPT(pt, d)                           \
+  {                                                      \
+    volatile uint32_t *log_hw = (uint32_t *)0x411f0084u; \
+    uint32_t time = (uint32_t)ibex_mcycle_read();        \
+    *log_hw = USBUTILS_FUNCPT_ENTRY_SIGNATURE;           \
+    *log_hw = time;                                      \
+    *log_hw = (USBUTILS_FUNCPT_FILE << 16) | (pt);       \
+    *log_hw = (uint32_t)(d);                             \
+  }
+#endif
+
+#if USB_DVSIM
+// Note: we have faster logging in dvsim; hopefully fast enough to keep up with
+// DPI still
+#define USBUTILS_TRACE(pt, s) LOG_INFO("%u:%s", pt, s);
+#else
+#define USBUTILS_TRACE(pt, s) USBUTILS_FUNCPT((1U << 31) | (pt), (uintptr_t)s)
+#endif
+
+/**
+ * Report the contents of the function point log
+ */
+void usbutils_funcpt_report(void);
+#else
+// Omit function point tracing
+#define USBUTILS_FUNCPT(pt, d)
+#define USBUTILS_TRACE(pt, d)
 #endif
 
 // Used for tracing what is going on. This may impact timing which is critical
