@@ -108,8 +108,9 @@ static bool collect_buffers(usbdev_tusb_ctx_t *ctx, unsigned ep,
   return false;
 }
 
-static status_t rx_callback(void *ctx_v, dif_usbdev_rx_packet_info_t packet_info,
-                        dif_usbdev_buffer_t buffer) {
+static status_t rx_callback(void *ctx_v,
+                            dif_usbdev_rx_packet_info_t packet_info,
+                            dif_usbdev_buffer_t buffer) {
   usbdev_tusb_ctx_t *ctx = (usbdev_tusb_ctx_t *)ctx_v;
   uint8_t ep = packet_info.endpoint;
   size_t bytes_read = 0U;
@@ -148,7 +149,7 @@ static status_t rx_callback(void *ctx_v, dif_usbdev_rx_packet_info_t packet_info
 }
 
 bool usbdev_tinyusb_send(usbdev_tusb_ctx_t *ctx, uint8_t ep,
-                             const uint8_t *buffer, uint16_t total_bytes) {
+                         const uint8_t *buffer, uint16_t total_bytes) {
   // TinyUSB sends its own ZLP so we don't need usb_testutils to handle that
   usb_testutils_xfr_flags_t flags = kUsbTestutilsXfrDoubleBuffered;
 
@@ -160,7 +161,8 @@ bool usbdev_tinyusb_send(usbdev_tusb_ctx_t *ctx, uint8_t ep,
   ctx->ep[ep].sending = true;
   ctx->ep[ep].send_len = total_bytes;
 
-  status_t status = usb_testutils_transfer_send(&usbutils, ep, buffer, total_bytes, flags);
+  status_t status =
+      usb_testutils_transfer_send(&usbutils, ep, buffer, total_bytes, flags);
   if (!status_ok(status)) {
     ctx->ep[ep].sending = false;
     return false;
@@ -169,7 +171,8 @@ bool usbdev_tinyusb_send(usbdev_tusb_ctx_t *ctx, uint8_t ep,
   return true;
 }
 
-static status_t tx_done_callback(void *ctx_v, usb_testutils_xfr_result_t result) {
+static status_t tx_done_callback(void *ctx_v,
+                                 usb_testutils_xfr_result_t result) {
   usbdev_tusb_ep_ctx_t *ep_ctx = (usbdev_tusb_ep_ctx_t *)ctx_v;
   if (verbose) {
     LOG_INFO("tx_done callback on ep %u sending %c\n", ep_ctx->ep,
@@ -203,7 +206,8 @@ static void reset(void *ctx_v) {
   dcd_event_bus_signal(0, DCD_EVENT_BUS_RESET, irq_mode);
 }
 
-static status_t link_callback(void *ctx_v, dif_usbdev_irq_state_snapshot_t snapshot,
+static status_t link_callback(void *ctx_v,
+                              dif_usbdev_irq_state_snapshot_t snapshot,
                               dif_usbdev_link_state_t link_state) {
   return OK_STATUS();
 }
@@ -229,12 +233,13 @@ bool usbdev_tinyusb_recv(usbdev_tusb_ctx_t *ctx, uint8_t ep, uint8_t *buffer,
   return true;
 }
 
-
-status_t usbdev_tinyusb_in_endpoint_setup(usbdev_tusb_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_type_t ep_type) {
+status_t usbdev_tinyusb_in_endpoint_setup(
+    usbdev_tusb_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_type_t ep_type) {
   if (verbose) {
     LOG_INFO("set up IN ep %u\n", ep);
   }
-  return usb_testutils_in_endpoint_setup(ctx->usbutils, ep, ep_type, &ctx->ep[ep], tx_done_callback, NULL, NULL);
+  return usb_testutils_in_endpoint_setup(
+      ctx->usbutils, ep, ep_type, &ctx->ep[ep], tx_done_callback, NULL, NULL);
 }
 
 status_t usbdev_tinyusb_out_endpoint_setup(
@@ -243,7 +248,8 @@ status_t usbdev_tinyusb_out_endpoint_setup(
   if (verbose) {
     LOG_INFO("set up OUT ep %u out mode %u\n", ep, out_mode);
   }
-  return usb_testutils_out_endpoint_setup(ctx->usbutils, ep, ep_type, out_mode, ctx, rx_callback, NULL);
+  return usb_testutils_out_endpoint_setup(ctx->usbutils, ep, ep_type, out_mode,
+                                          ctx, rx_callback, NULL);
 }
 
 status_t usbdev_tinyusb_init(usbdev_tusb_ctx_t *ctx, bool pinflip,
@@ -268,14 +274,18 @@ status_t usbdev_tinyusb_init(usbdev_tusb_ctx_t *ctx, bool pinflip,
   TRY(usb_testutils_link_callback_register(ctx->usbutils, link_callback, ctx));
 
   // Set up Endpoint Zero for the Default Control Pipe
-  TRY(usb_testutils_in_endpoint_setup(ctx->usbutils, 0, kUsbTransferTypeControl, &ctx->ep[0], tx_done_callback, NULL, NULL));
+  TRY(usb_testutils_in_endpoint_setup(ctx->usbutils, 0, kUsbTransferTypeControl,
+                                      &ctx->ep[0], tx_done_callback, NULL,
+                                      NULL));
   // TODO:
   // reset);
-  TRY(usb_testutils_out_endpoint_setup(ctx->usbutils, 0, kUsbTransferTypeControl, kUsbdevOutMessage, ctx, rx_callback, NULL));
+  TRY(usb_testutils_out_endpoint_setup(
+      ctx->usbutils, 0, kUsbTransferTypeControl, kUsbdevOutMessage, ctx,
+      rx_callback, NULL));
 
   // Enable reception of SETUP packets on Endpoint Zero
   TRY(dif_usbdev_endpoint_setup_enable(ctx->usbutils->dev, 0,
-                                                kDifToggleEnabled));
+                                       kDifToggleEnabled));
   return OK_STATUS();
 }
 

@@ -111,11 +111,12 @@ inline status_t usbdev_tinyusb_poll(usbdev_tusb_ctx_t *ctx) {
  *                     Dp/Dn
  * @return The result of the operation
  */
-//OT_WARN_UNUSED_RESULT
+// OT_WARN_UNUSED_RESULT
 status_t usbdev_tinyusb_init(usbdev_tusb_ctx_t *ctx, bool pinflip,
                              bool en_diff_rcvr, bool tx_use_d_se0);
 
-status_t usbdev_tinyusb_in_endpoint_setup(usbdev_tusb_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_type_t ep_type);
+status_t usbdev_tinyusb_in_endpoint_setup(
+    usbdev_tusb_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_type_t ep_type);
 
 status_t usbdev_tinyusb_out_endpoint_setup(
     usbdev_tusb_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_type_t ep_type,
@@ -149,7 +150,9 @@ inline void usbdev_tinyusb_stall(usbdev_tusb_ctx_t *ctx, uint8_t ep, int dir,
       .direction = dir,
   };
 
-  CHECK_DIF_OK(dif_usbdev_endpoint_stall_enable(ctx->usbutils->dev, endpoint, enable ? kDifToggleEnabled : kDifToggleDisabled));
+  CHECK_DIF_OK(dif_usbdev_endpoint_stall_enable(
+      ctx->usbutils->dev, endpoint,
+      enable ? kDifToggleEnabled : kDifToggleDisabled));
 }
 
 #endif  // OPENTITAN_SW_DEVICE_LIB_TESTING_USBDEV_TINYUSB_H_

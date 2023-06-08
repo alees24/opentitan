@@ -10,7 +10,7 @@
 #include "sw/device/lib/testing/test_framework/ottf_main.h"
 #include "sw/device/lib/testing/tinyusb/hw/bsp/board.h"
 #include "sw/device/lib/testing/tinyusb/src/tusb.h"
-//#include "sw/device/lib/testing/usbdev_tinyusb.h"
+// #include "sw/device/lib/testing/usbdev_tinyusb.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"  // Generated.
 
@@ -23,8 +23,8 @@
 // TODO:
 extern void dcd_service(void);
 
-//#include "bsp/board.h"
-//#include "sw/device/lib/testing/tinyusb/src/tusb.h"
+// #include "bsp/board.h"
+// #include "sw/device/lib/testing/tinyusb/src/tusb.h"
 
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES

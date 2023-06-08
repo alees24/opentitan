@@ -123,7 +123,7 @@ bool test_main(void) {
     CHECK_STATUS_OK(usb_testutils_poll(&usbdev));
   }
 
-usbutils_funcpt_report();
+  usbutils_funcpt_report();
 
   // Set up two serial ports.
   CHECK_STATUS_OK(usb_testutils_simpleserial_init(&simple_serial, &usbdev, 1,

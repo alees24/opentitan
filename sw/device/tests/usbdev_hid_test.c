@@ -25,7 +25,7 @@ usbdev_tusb_ctx_t usbdev_tusb;
  */
 static dif_pinmux_t pinmux;
 
-//#include "sw/device/lib/testing/tinyusb/hw/bsp/board.h"
+// #include "sw/device/lib/testing/tinyusb/hw/bsp/board.h"
 
 uint32_t board_millis(void) {
   uint64_t now = ibex_mcycle_read();

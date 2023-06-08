@@ -23,7 +23,7 @@
  *
  */
 
-//#include "bsp/board.h"
+// #include "bsp/board.h"
 #include "sw/device/lib/testing/tinyusb/src/tusb.h"
 
 #if CFG_TUD_MSC

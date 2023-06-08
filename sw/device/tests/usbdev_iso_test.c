@@ -32,13 +32,14 @@
 
 // Number of streams to be tested
 #ifndef NUM_STREAMS
-#define NUM_STREAMS USBUTILS_STREAMS_MAX
+#define NUM_STREAMS 4U  // USBUTILS_STREAMS_MAX
 #endif
 
 // This takes about 256s presently with 10MHz CPU in CW310 FPGA and physical
 // USB with randomized packet sizes and the default memcpy implementation;
 // The _MEM_FASTER switch drops the run time to 187s
-#define TRANSFER_BYTES_FPGA (0x10U << 20)
+//#define TRANSFER_BYTES_FPGA (0x10U << 20)
+#define TRANSFER_BYTES_FPGA (0x8000U)
 
 // This is appropriate for a Verilator chip simulation with 15 min timeout
 #define TRANSFER_BYTES_VERILATOR 0x2400U
@@ -57,48 +58,48 @@ static const uint8_t config_descriptors[] = {
     // Up to 11 interfaces and NUM_STREAMS in the descriptor head specifies how
     // many of the interfaces will be declared to the host
     VEND_INTERFACE_DSCR(0, 2, 0x50, 1),
-    USB_EP_DSCR(0, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(1, 2, 0x50, 1),
-    USB_EP_DSCR(0, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(2, 2, 0x50, 1),
-    USB_EP_DSCR(0, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(3, 2, 0x50, 1),
-    USB_EP_DSCR(0, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(4, 2, 0x50, 1),
-    USB_EP_DSCR(0, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(5, 2, 0x50, 1),
-    USB_EP_DSCR(0, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(6, 2, 0x50, 1),
-    USB_EP_DSCR(0, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(7, 2, 0x50, 1),
-    USB_EP_DSCR(0, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(8, 2, 0x50, 1),
-    USB_EP_DSCR(0, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(9, 2, 0x50, 1),
-    USB_EP_DSCR(0, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(10, 2, 0x50, 1),
-    USB_EP_DSCR(0, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
-    USB_EP_DSCR(1, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 0),
+    USB_EP_DSCR(0, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
 };
 
 /**

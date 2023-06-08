@@ -25,7 +25,7 @@
 
 #include "sw/device/lib/testing/tinyusb/src/tusb.h"
 
-//#define strlen(x) (memchr((x), 0, SIZE_MAX) - (x))
+// #define strlen(x) (memchr((x), 0, SIZE_MAX) - (x))
 size_t strlen(const char *s) {
   const char *ss = s;
   while (*s != '\0')

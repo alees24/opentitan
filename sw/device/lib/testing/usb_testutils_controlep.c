@@ -121,7 +121,7 @@ static usb_testutils_ctstate_t setup_req(usb_testutils_controlep_ctx_t *ctctx,
         if (wLength < len) {
           len = wLength;
         }
-USBUTILS_FUNCPT(0xdede, (wLength << 16) | len);
+        USBUTILS_FUNCPT(0xdede, (wLength << 16) | len);
         CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->dev, &buffer, dev_dscr, len,
                                              &bytes_written));
         CHECK(bytes_written == len);
@@ -405,7 +405,9 @@ static status_t ctrl_rx(void *ctctx_v, dif_usbdev_rx_packet_info_t packet_info,
   TRC_I((ctctx->ctrlstate << 24) | ((int)packet_info.is_setup << 16) |
             packet_info.length,
         32);
-  USBUTILS_FUNCPT(0x57A1, (ctctx->ctrlstate << 24) | ((int)packet_info.is_setup << 16) | packet_info.length);
+  USBUTILS_FUNCPT(0x57A1, (ctctx->ctrlstate << 24) |
+                              ((int)packet_info.is_setup << 16) |
+                              packet_info.length);
 
   if (buffer.type != kDifUsbdevBufferTypeStale) {
     // Return the unused buffer.
