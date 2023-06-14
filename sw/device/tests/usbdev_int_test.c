@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// USB Isochronous streaming data test
+// USB Interrupt streaming data test
 //
 // This test requires interaction with the USB DPI model or a test application
 // on the USB host. The test initializes the USB device and configures a set of
@@ -31,7 +31,7 @@
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"  // Generated.
 
 // Number of streams to be tested
-// Note: there is a limit of 6 Isochronous streams to allow bidirectional
+// Note: there is a limit of 6 Interrupt streams to allow bidirectional
 // traffic (IN and OUT) with a maximum packet size of 64 bytes per endpoint.
 #ifndef NUM_STREAMS
 #define NUM_STREAMS 6U
@@ -40,7 +40,8 @@
 // This takes about 256s presently with 10MHz CPU in CW310 FPGA and physical
 // USB with randomized packet sizes and the default memcpy implementation;
 // The _MEM_FASTER switch drops the run time to 187s
-#define TRANSFER_BYTES_FPGA (0x10U << 20)
+//#define TRANSFER_BYTES_FPGA (0x10U << 20)
+#define TRANSFER_BYTES_FPGA (0x20000U)
 
 // This is appropriate for a Verilator chip simulation with 15 min timeout
 #define TRANSFER_BYTES_VERILATOR 0x2400U
@@ -59,48 +60,48 @@ static const uint8_t config_descriptors[] = {
     // Up to 11 interfaces and NUM_STREAMS in the descriptor head specifies how
     // many of the interfaces will be declared to the host
     VEND_INTERFACE_DSCR(0, 2, 0x50, 1),
-    USB_EP_DSCR(0, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 1U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 1U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 1U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(1, 2, 0x50, 1),
-    USB_EP_DSCR(0, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 2U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 2U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 2U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(2, 2, 0x50, 1),
-    USB_EP_DSCR(0, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 3U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 3U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 3U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(3, 2, 0x50, 1),
-    USB_EP_DSCR(0, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 4U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 4U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 4U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(4, 2, 0x50, 1),
-    USB_EP_DSCR(0, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 5U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 5U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 5U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(5, 2, 0x50, 1),
-    USB_EP_DSCR(0, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 6U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 6U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 6U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(6, 2, 0x50, 1),
-    USB_EP_DSCR(0, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 7U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 7U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 7U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(7, 2, 0x50, 1),
-    USB_EP_DSCR(0, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 8U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 8U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 8U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(8, 2, 0x50, 1),
-    USB_EP_DSCR(0, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 9U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 9U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 9U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(9, 2, 0x50, 1),
-    USB_EP_DSCR(0, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 10U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 10U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 10U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 
     VEND_INTERFACE_DSCR(10, 2, 0x50, 1),
-    USB_EP_DSCR(0, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
-    USB_EP_DSCR(1, 11U, kUsbTransferTypeIsochronous, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(0, 11U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
+    USB_EP_DSCR(1, 11U, kUsbTransferTypeInterrupt, USBDEV_MAX_PACKET_SIZE, 1),
 };
 
 /**
@@ -183,7 +184,7 @@ bool test_main(void) {
         "Verilator simulation or CW310 FPGA. It needs logic on the host side "
         "to retrieve, scramble and return the generated byte stream");
 
-  LOG_INFO("Running USBDEV ISO Test");
+  LOG_INFO("Running USBDEV INT Test");
 
   // Check we can support the requested number of streams
   CHECK(nstreams && nstreams < USBDEV_NUM_ENDPOINTS);
@@ -239,7 +240,7 @@ bool test_main(void) {
   // shall want to test a mix of different transfer types concurrently.
   usb_testutils_transfer_type_t xfr_types[USBUTILS_STREAMS_MAX];
   for (unsigned s = 0U; s < nstreams; s++) {
-    xfr_types[s] = kUsbTransferTypeIsochronous;
+    xfr_types[s] = kUsbTransferTypeInterrupt;
   }
 
   // Initialise the state of the streams

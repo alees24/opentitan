@@ -345,7 +345,12 @@ for (unsigned i = 0U; i < 100U; i++) {
   //
   // We can expect AVFIFO empty and RXFIFO full interrupts when using a real
   // host and also 'LinkOut' errors because these can be triggered by a lack of
-  // space in the RXFIFO
+  // space in the RXFIFO.
+  //
+  // RxBitstuffErr should not really be expected to occur but presently it does
+  // when Low Speed traffic is propagated through a hub to our device; usbdev
+  // is unaware of the PRE special packet and proceeds to try to decode the
+  // Hub Setup interval and/or the start of the Low Speed SYNC field.
 
   if (istate &
       ~((1u << kDifUsbdevIrqLinkReset) | (1u << kDifUsbdevIrqPktReceived) |
@@ -359,10 +364,10 @@ for (unsigned i = 0U; i < 100U; i++) {
     //        modify usb_testutils_ to return the information without faulting
     //        it?
     if (istate &
-        ((1u << kDifUsbdevIrqRxFull) | (1u << kDifUsbdevIrqAvOverflow) |
-         (1u << kDifUsbdevIrqLinkInErr) | (1u << kDifUsbdevIrqRxCrcErr) |
-         (1u << kDifUsbdevIrqRxPidErr) | (1u << kDifUsbdevIrqRxBitstuffErr) |
-         (1u << kDifUsbdevIrqLinkOutErr))) {
+        ((1u << kDifUsbdevIrqAvOverflow) |
+         (1u << kDifUsbdevIrqLinkInErr) |
+         (1u << kDifUsbdevIrqRxCrcErr) |
+         (1u << kDifUsbdevIrqRxPidErr))) {
       LOG_INFO("USB: Unexpected interrupts: 0x%08x", istate);
     } else {
       // Other events are optionally reported
