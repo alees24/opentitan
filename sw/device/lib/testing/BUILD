@@ -435,7 +435,9 @@ cc_library(
     target_compatible_with = [OPENTITAN_CPU],
     deps = [
         "//hw/top_earlgrey/sw/autogen:top_earlgrey",
+        "//sw/device/lib/dif:rv_plic",
         "//sw/device/lib/dif:usbdev",
+        "//sw/device/lib/runtime:irq",
         "//sw/device/lib/testing/test_framework:check",
     ],
 )

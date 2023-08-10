@@ -131,6 +131,10 @@ typedef struct usb_testutils_ctx usb_testutils_ctx_t;
 struct usb_testutils_ctx {
   dif_usbdev_t *dev;
   dif_usbdev_buffer_pool_t *buffer_pool;
+  /**
+   * Interrupt-driven operation rather than polling?
+   */
+  bool irq_driven;
   int flushed;
   /**
    * Have we received an indication of USB activity?
@@ -318,11 +322,13 @@ status_t usb_testutils_endpoint_remove(usb_testutils_ctx_t *ctx, uint8_t ep);
  *                     input
  * @param tx_use_d_se0 boolean to indicate if PHY uses D/SE0 for TX instead of
  *                     Dp/Dn
+ * @param use_irqs     Interrupt-driven operation rather than polling?
  * @return The result of the operation
  */
 OT_WARN_UNUSED_RESULT
 status_t usb_testutils_init(usb_testutils_ctx_t *ctx, bool pinflip,
-                            bool en_diff_rcvr, bool tx_use_d_se0);
+                            bool en_diff_rcvr, bool tx_use_d_se0,
+                            bool use_irqs);
 
 /**
  * Send a larger data transfer from the given endpoint
@@ -367,5 +373,33 @@ status_t usb_testutils_poll(usb_testutils_ctx_t *ctx);
  */
 OT_WARN_UNUSED_RESULT
 status_t usb_testutils_fin(usb_testutils_ctx_t *ctx);
+
+/**
+ * Interrupt Service Routine for usbdev
+ *
+ * @param ctx initialized usb_testutils context
+ */
+void usb_testutils_isr(usb_testutils_ctx_t *ctx);
+
+/**
+ * Disable all interrupt handling, if not already disabled, and return the
+ * previous interrupt handling state (for later passing to
+ * usb_testutils_int_restore)
+ *
+ * @param ctx        initialized usb test utils context pointer
+ * @param snapshot   receives the previous interrupt state
+ * @return The result of the operation
+ */
+status_t usb_testutils_irq_disable(usb_testutils_ctx_t *ctx, dif_usbdev_irq_enable_snapshot_t *snapshot);
+
+/**
+ * Restore the interrupt handling to the supplied state (previously returned by
+ * usb_testutils_int_disable)
+ *
+ * @param ctx        initialized usb test utils context pointer
+ * @param snapshot   previous interrupt handling state
+ * @return The result of the operation
+ */
+status_t usb_testutils_irq_restore(usb_testutils_ctx_t *ctx, const dif_usbdev_irq_enable_snapshot_t *snapshot);
 
 #endif  // OPENTITAN_SW_DEVICE_LIB_TESTING_USB_TESTUTILS_H_

@@ -5,6 +5,9 @@
 #include "sw/device/lib/testing/usb_testutils.h"
 
 #include "sw/device/lib/dif/dif_usbdev.h"
+#include "sw/device/lib/dif/dif_rv_plic.h"
+#include "sw/device/lib/runtime/ibex.h"
+#include "sw/device/lib/runtime/irq.h"
 #include "sw/device/lib/testing/test_framework/check.h"
 
 #include "hw/top_earlgrey/sw/autogen/top_earlgrey.h"
@@ -16,20 +19,59 @@
 static dif_usbdev_t usbdev;
 static dif_usbdev_buffer_pool_t buffer_pool;
 
+/**
+ * TODO: This is the only way that we can acquire our context for the ISR handler
+ * at present!
+ */
+static usb_testutils_ctx_t *ctx_isr = NULL;
+
+static dif_rv_plic_t rv_plic;
+
+// TODO: perhaps we migrate this into the top-level test for now?!
+
+/**
+ * TODO: Temporary implementation for bring up; ottf has a WEAK implementation
+ * of this function
+ */
+void ottf_external_isr(void) {
+  const uint32_t kPlicTarget = kTopEarlgreyPlicTargetIbex0;
+  dif_rv_plic_irq_id_t plic_irq_id;
+  CHECK_DIF_OK(dif_rv_plic_irq_claim(&rv_plic, kPlicTarget, &plic_irq_id));
+
+  top_earlgrey_plic_peripheral_t peripheral = (top_earlgrey_plic_peripheral_t)
+      top_earlgrey_plic_interrupt_for_peripheral[plic_irq_id];
+
+  if (peripheral == kTopEarlgreyPlicPeripheralUart0 &&
+//      ottf_console_flow_control_isr()) {
+true) {
+    // Complete the IRQ at PLIC.
+    CHECK_DIF_OK(
+        dif_rv_plic_irq_complete(&rv_plic, kPlicTarget, plic_irq_id));
+    return;
+  } else if (peripheral == kTopEarlgreyPlicPeripheralUsbdev && ctx_isr) {
+// TODO: how ARE we supposed to handle the sequencing here?
+// It seems to me that a simple sequential ordering does not work!
+    usb_testutils_isr(ctx_isr);
+// TODO: how ARE we supposed to handle this here?
+    CHECK_DIF_OK(
+        dif_rv_plic_irq_complete(&rv_plic, kPlicTarget, plic_irq_id));
+    return;
+  }
+
+  LOG_INFO("External IRQ", ibex_mcause_read());
+  abort();
+}
+
 // Internal function to create the packet that will form the next part of a
 // larger buffer transfer
-static bool usb_testutils_part_prepare(usb_testutils_ctx_t *ctx,
-                                       usb_testutils_transfer_t *transfer,
-                                       dif_usbdev_buffer_t *next_part,
-                                       bool *last) {
-  CHECK(ctx && transfer && last);
+static status_t usb_testutils_part_prepare(usb_testutils_ctx_t *ctx,
+                                           usb_testutils_transfer_t *transfer,
+                                           dif_usbdev_buffer_t *next_part,
+                                           bool *last) {
+  TRY_CHECK(ctx && transfer && last);
 
   // Allocate and fill a packet buffer
-  dif_result_t result =
-      dif_usbdev_buffer_request(ctx->dev, ctx->buffer_pool, next_part);
-  if (result != kDifOk) {
-    return false;
-  }
+  TRY(dif_usbdev_buffer_request(ctx->dev, ctx->buffer_pool, next_part));
 
   // Determine the maximum bytes/packet
   unsigned max_packet = USBDEV_MAX_PACKET_SIZE;
@@ -44,9 +86,9 @@ static bool usb_testutils_part_prepare(usb_testutils_ctx_t *ctx,
   }
   size_t bytes_written = 0U;
   if (part_len) {
-    CHECK_DIF_OK(dif_usbdev_buffer_write(ctx->dev, next_part,
-                                         &transfer->buffer[transfer->offset],
-                                         part_len, &bytes_written));
+    TRY(dif_usbdev_buffer_write(ctx->dev, next_part,
+                                &transfer->buffer[transfer->offset], part_len,
+                                &bytes_written));
   }
   //  Is this the last packet?
   uint32_t next_offset = transfer->offset + bytes_written;
@@ -57,21 +99,20 @@ static bool usb_testutils_part_prepare(usb_testutils_ctx_t *ctx,
       *last = false;
     }
   } else {
-    CHECK(bytes_written < max_packet);
+    TRY_CHECK(bytes_written < max_packet);
   }
 
   transfer->offset = next_offset;
-  return true;
+  return OK_STATUS();
 }
 
 // Internal function to perform the next part of a larger buffer transfer
-static bool usb_testutils_transfer_next_part(
+static status_t usb_testutils_transfer_next_part(
     usb_testutils_ctx_t *ctx, uint8_t ep, usb_testutils_transfer_t *transfer) {
   // Do we need to prepare a packet?
-  if (!transfer->next_valid &&
-      !usb_testutils_part_prepare(ctx, transfer, &transfer->next_part,
-                                  &transfer->last)) {
-    return false;
+  if (!transfer->next_valid) {
+    TRY(usb_testutils_part_prepare(ctx, transfer, &transfer->next_part,
+                                   &transfer->last));
   }
 
   // Send the existing prepared packet
@@ -80,15 +121,17 @@ static bool usb_testutils_transfer_next_part(
 
   // If we're double-buffering, request and fill another buffer immediately;
   // we'll then be able to supply it much more promptly later...
+  status_t result = OK_STATUS();
   if ((transfer->flags & kUsbTestutilsXfrDoubleBuffered) && !transfer->last) {
-    transfer->next_valid = usb_testutils_part_prepare(
-        ctx, transfer, &transfer->next_part, &transfer->last);
+    result = usb_testutils_part_prepare(ctx, transfer, &transfer->next_part,
+                                        &transfer->last);
+    transfer->next_valid = status_ok(result);
   }
 
-  return true;
+  return result;
 }
 
-status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
+static status_t usb_testutils_service(usb_testutils_ctx_t *ctx, bool in_isr) {
   uint32_t istate;
 
   // Collect a set of interrupts
@@ -96,6 +139,11 @@ status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
 
   if (!istate) {
     return OK_STATUS();
+  }
+
+  // TODO: logging at this point is generally a no-no!
+  if (false && (istate & ~(1u << kDifUsbdevIrqFrame))) {
+    LOG_INFO("USB: %s %08x", in_isr ? "IRQ" : "poll", istate);
   }
 
   // Process IN completions first so we get the fact that send completed
@@ -118,7 +166,8 @@ status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
         bool done = true;
         if (transfer->buffer) {
           if (transfer->next_valid || !transfer->last) {
-            if (usb_testutils_transfer_next_part(ctx, (uint8_t)ep, transfer)) {
+            status_t result = usb_testutils_transfer_next_part(ctx, (uint8_t)ep, transfer);
+            if (status_ok(result)) {
               done = false;
             } else {
               res = kUsbTestutilsXfrResultFailed;
@@ -228,7 +277,7 @@ status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
     }
   }
 
-  // TODO - clean this up
+  // TODO: clean this up
   // Frame ticks every 1ms, use to flush data every 16ms
   // (faster in DPI but this seems to work ok)
   //
@@ -249,16 +298,51 @@ status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
   return OK_STATUS();
 }
 
+status_t usb_testutils_poll(usb_testutils_ctx_t *ctx) {
+  return usb_testutils_service(ctx, false);
+}
+
+void usb_testutils_isr(usb_testutils_ctx_t *ctx) {
+  CHECK_STATUS_OK(usb_testutils_service(ctx, true));
+}
+
+status_t usb_testutils_irq_disable(usb_testutils_ctx_t *ctx, dif_usbdev_irq_enable_snapshot_t *snapshot) {
+  if (!ctx->irq_driven) {
+    memset(snapshot, 0, sizeof(*snapshot));  // Should not be used anyway
+    return OK_STATUS();
+  }
+
+  // Disable generation of interrupts by usbdev
+  TRY(dif_usbdev_irq_disable_all(ctx->dev, snapshot));
+
+  // TODO: Do we need to disable interrupts from the PLIC here?
+
+  return OK_STATUS();
+}
+
+status_t usb_testutils_irq_restore(usb_testutils_ctx_t *ctx,
+                                   const dif_usbdev_irq_enable_snapshot_t *snapshot) {
+  if (ctx->irq_driven) {
+    TRY(dif_usbdev_irq_restore_all(ctx->dev, snapshot));
+  }
+  return OK_STATUS(); 
+}
+
 status_t usb_testutils_transfer_send(usb_testutils_ctx_t *ctx, uint8_t ep,
                                      const uint8_t *data, uint32_t length,
                                      usb_testutils_xfr_flags_t flags) {
-  CHECK(ep < USBDEV_NUM_ENDPOINTS);
+  TRY_CHECK(ep < USBDEV_NUM_ENDPOINTS);
 
   usb_testutils_transfer_t *transfer = &ctx->in[ep].transfer;
   if (transfer->buffer) {
-    // If there is an in-progress transfer, then we cannot accept another
-    return OK_STATUS(false);
+    // If there is an in-progress transfer, then we cannot accept another but
+    // the existing one should complete...
+    return UNAVAILABLE();
   }
+
+  // Protect against background accesses to buffer pool/device
+  dif_usbdev_irq_enable_snapshot_t state;
+  TRY(usb_testutils_irq_disable(ctx, &state));
 
   // Describe this transfer
   transfer->buffer = data;
@@ -267,14 +351,18 @@ status_t usb_testutils_transfer_send(usb_testutils_ctx_t *ctx, uint8_t ep,
   transfer->flags = flags;
   transfer->next_valid = false;
 
-  if (!usb_testutils_transfer_next_part(ctx, ep, transfer)) {
+  status_t result = usb_testutils_transfer_next_part(ctx, ep, transfer);
+  if (!status_ok(result)) {
     // Forget about the attempted transfer
     transfer->buffer = NULL;
-    return OK_STATUS(false);
   }
+  // else Buffer transfer is underway...
 
-  // Buffer transfer is underway...
-  return OK_STATUS(true);
+  status_t result2 = usb_testutils_irq_restore(ctx, &state);
+  if (status_ok(result)) {
+    result = result2;
+  }
+  return result;
 }
 
 status_t usb_testutils_in_endpoint_setup(
@@ -411,8 +499,55 @@ status_t usb_testutils_endpoint_remove(usb_testutils_ctx_t *ctx, uint8_t ep) {
   return usb_testutils_out_endpoint_remove(ctx, ep);
 }
 
+// Enable all of the IRQs that we need for interrupt-driven background
+// operation.
+static status_t usb_testutils_irqs_init(usb_testutils_ctx_t *ctx) {
+  // Initialize the PLIC.
+  CHECK_DIF_OK(dif_rv_plic_init(
+      mmio_region_from_addr(TOP_EARLGREY_RV_PLIC_BASE_ADDR), &rv_plic));
+
+  // Enable all the usbdev interrupts used in this test.
+  // TODO: we should perhaps only enable the ones that we are going to
+  // generate?
+  for (dif_rv_plic_irq_id_t irq_id = kTopEarlgreyPlicIrqIdUsbdevPktReceived; irq_id <= kTopEarlgreyPlicIrqIdUsbdevLinkOutErr;
+       ++irq_id) {
+    // Set IRQ priority
+    uint32_t priority = kDifRvPlicMaxPriority;
+    CHECK_DIF_OK(dif_rv_plic_irq_set_priority(&rv_plic, irq_id, priority));
+
+    // Enable IRQ in PLIC
+    CHECK_DIF_OK(
+        dif_rv_plic_irq_set_enabled(&rv_plic, irq_id, kTopEarlgreyPlicTargetIbex0, kDifToggleEnabled));
+  }
+  CHECK_DIF_OK(
+      dif_rv_plic_target_set_threshold(&rv_plic, kTopEarlgreyPlicTargetIbex0, kDifRvPlicMinPriority));
+
+  // Enable the specific interrupts that we expect and/or require under normal
+  // operating conditions; the other interrupts may indicate corrupted traffic
+  // or occur only under heavy traffic but do not represent hard failures.
+  const dif_usbdev_irq_t irqs_used[] = {
+      kDifUsbdevIrqPktReceived,  kDifUsbdevIrqPktSent,
+      kDifUsbdevIrqDisconnected, kDifUsbdevIrqHostLost,
+      kDifUsbdevIrqLinkReset,    kDifUsbdevIrqLinkSuspend,
+      kDifUsbdevIrqLinkResume,   kDifUsbdevIrqAvOverflow,
+      kDifUsbdevIrqFrame,        kDifUsbdevIrqPowered};
+  for (unsigned idx = 0u; idx < sizeof(irqs_used) / sizeof(irqs_used[0]);
+       ++idx) {
+    TRY(dif_usbdev_irq_set_enabled(ctx->dev, irqs_used[idx],
+                                   kDifToggleEnabled));
+  }
+
+  // Enable global and external IRQ at Ibex.
+  // TODO: this is definitely in the wrong place at the moment!
+  irq_global_ctrl(true);
+  irq_external_ctrl(true);
+
+  return OK_STATUS();
+}
+
 status_t usb_testutils_init(usb_testutils_ctx_t *ctx, bool pinflip,
-                            bool en_diff_rcvr, bool tx_use_d_se0) {
+                            bool en_diff_rcvr, bool tx_use_d_se0,
+                            bool use_irqs) {
   TRY_CHECK(ctx != NULL);
   ctx->dev = &usbdev;
   ctx->buffer_pool = &buffer_pool;
@@ -421,6 +556,9 @@ status_t usb_testutils_init(usb_testutils_ctx_t *ctx, bool pinflip,
   // detection of the first bus frame
   ctx->got_frame = false;
   ctx->frame = 0u;
+
+  // Remember whether we're interrupt- or polling-driven
+  ctx->irq_driven = use_irqs;
 
   TRY(dif_usbdev_init(mmio_region_from_addr(USBDEV_BASE_ADDR), ctx->dev));
 
@@ -442,8 +580,17 @@ status_t usb_testutils_init(usb_testutils_ctx_t *ctx, bool pinflip,
         kUsbdevOutDisabled, NULL, NULL, NULL, NULL, NULL));
   }
 
-  // All about polling...
-  TRY(dif_usbdev_irq_disable_all(ctx->dev, NULL));
+  if (ctx->irq_driven) {
+    // Remember the context pointer; unfortunately at present this is necessary
+    // to make the context available to the ISR.
+    ctx_isr = ctx;
+
+    // Enable all of the IRQs that we shall need.
+    TRY(usb_testutils_irqs_init(ctx));
+  } else {
+    // All about polling...
+    TRY(dif_usbdev_irq_disable_all(ctx->dev, NULL));
+  }
 
   // Provide buffers for any packet reception
   TRY(dif_usbdev_fill_available_fifo(ctx->dev, ctx->buffer_pool));
