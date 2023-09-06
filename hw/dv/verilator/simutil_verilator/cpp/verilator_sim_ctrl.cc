@@ -20,7 +20,7 @@
  *
  * Called by $time in Verilog, converts to double, to match what SystemC does
  */
-double sc_time_stamp() { return VerilatorSimCtrl::GetInstance().GetTime(); }
+double sc_time_stamp() { return VerilatorSimCtrl::GetInstance().GetSimTime(); }
 
 #ifdef VL_USER_STOP
 /**
@@ -39,10 +39,9 @@ VerilatorSimCtrl &VerilatorSimCtrl::GetInstance() {
   return instance;
 }
 
-void VerilatorSimCtrl::SetTop(VerilatedToplevel *top, CData *sig_clk,
-                              CData *sig_rst, VerilatorSimCtrlFlags flags) {
+void VerilatorSimCtrl::SetTop(VerilatedToplevel *top, CData *sig_rst,
+                              VerilatorSimCtrlFlags flags) {
   top_ = top;
-  sig_clk_ = sig_clk;
   sig_rst_ = sig_rst;
   flags_ = flags;
 }
@@ -228,7 +227,8 @@ void VerilatorSimCtrl::RegisterExtension(SimCtrlExtension *ext) {
 
 VerilatorSimCtrl::VerilatorSimCtrl()
     : top_(nullptr),
-      time_(0),
+      cycle_(0),
+      sim_time_(0),
 #ifdef VM_TRACE_FMT_FST
       trace_file_path_("sim.fst"),
 #else
@@ -310,13 +310,15 @@ bool VerilatorSimCtrl::TraceOff() {
 }
 
 void VerilatorSimCtrl::PrintStatistics() const {
-  double speed_hz = time_ / 2 / (GetExecutionTimeMs() / 1000.0);
+  // Count of cycles of the main system clock.
+  uint64_t cycles = GetCycles();
+  double speed_hz = cycles / (GetExecutionTimeMs() / 1000.0);
   double speed_khz = speed_hz / 1000.0;
 
   std::cout << std::endl
             << "Simulation statistics" << std::endl
             << "=====================" << std::endl
-            << "Executed cycles:  " << std::dec << time_ / 2 << std::endl
+            << "Executed cycles:  " << std::dec << cycles << std::endl
             << "Wallclock time:   " << GetExecutionTimeMs() / 1000.0 << " s"
             << std::endl
             << "Simulation speed: " << speed_hz << " cycles/s "
@@ -354,27 +356,63 @@ void VerilatorSimCtrl::Run() {
   unsigned long start_reset_cycle_ = initial_reset_delay_cycles_;
   unsigned long end_reset_cycle_ = start_reset_cycle_ + reset_duration_cycles_;
 
-  while (1) {
-    unsigned long cycle_ = time_ / 2;
+  // Initialize the count of system clock cycles.
+  cycle_ = 0u;
 
+  while (1) {
     if (cycle_ == start_reset_cycle_) {
       SetReset();
     } else if (cycle_ == end_reset_cycle_) {
       UnsetReset();
     }
 
-    *sig_clk_ = !*sig_clk_;
+#if 1
+    // Determine how the maximal amount of simulation time that may elapse
+    // before another clock edge (positive or negative) occurs.
+    uint32_t time_del = std::numeric_limits<uint32_t>::max();
+    for (auto it = clks_.begin(); it != clks_.end(); ++it) {
+      uint32_t next = (*it).EdgeTimeDelta();
+      if (time_del > next) {
+        // This clock has an earlier transition; we must not advance the
+        // simulation beyond any clock edge, because we cannot know to which
+        // edge(s) the design is sensitive.
+        time_del = next;
+      }
+    }
+
+    // TODO: presently the system clock is just assumed to be the first.
+    bool sys_clk = true;
+    bool sys_clk_rise = false;
+
+    // Handle all clock transitions at this time.
+    for (auto it = clks_.begin(); it != clks_.end(); ++it) {
+      bool pos_edge = (*it).PosEdgeAfterTime(time_del);
+      if (sys_clk) {
+        sys_clk_rise = pos_edge;
+      }
+      sys_clk = false;
+    }
+
+    sim_time_ += time_del;
+#else
+    auto it = clks_.begin();
+    CData *sig_clk = (*it).sig_clk_;
+    *sig_clk = !*sig_clk;
+    bool sys_clk_rise = *sig_clk;
+#endif
 
     // Call all extension on-clock methods
-    if (*sig_clk_) {
+    if (sys_clk_rise) {
+      cycle_++;
+
       for (auto it = extension_array_.begin(); it != extension_array_.end();
            ++it) {
-        (*it)->OnClock(time_);
+        // The value passed is the number of half-clock periods.
+        (*it)->OnClock(cycle_ * 2u);
       }
     }
 
     top_->eval();
-    time_++;
 
     Trace();
 
@@ -388,7 +426,7 @@ void VerilatorSimCtrl::Run() {
                 << std::endl;
       break;
     }
-    if (term_after_cycles_ && (time_ / 2 >= term_after_cycles_)) {
+    if (term_after_cycles_ && cycle_ >= term_after_cycles_) {
       std::cout << "Simulation timeout of " << term_after_cycles_
                 << " cycles reached, shutting down simulation." << std::endl;
       break;
@@ -466,5 +504,5 @@ void VerilatorSimCtrl::Trace() {
               << std::endl;
   }
 
-  tracer_.dump(GetTime());
+  tracer_.dump(GetSimTime());
 }

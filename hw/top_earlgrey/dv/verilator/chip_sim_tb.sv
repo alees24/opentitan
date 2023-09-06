@@ -2,9 +2,20 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
+`ifndef VERILATOR_SEPARATE_CLOCKS
+`define VERILATOR_SEPARATE_CLOCKS
+`endif
+
 module chip_sim_tb (
   // Clock and Reset
+`ifdef VERILATOR_SEPARATE_CLOCKS
+  input clk_sys_i,
+  input clk_io_i,
+  input clk_usb_i,
+  input clk_aon_i,
+`else
   input clk_i,
+`endif
   input rst_ni
 );
 
@@ -26,8 +37,24 @@ module chip_sim_tb (
   logic cio_usbdev_dp_p2d, cio_usbdev_dp_d2p, cio_usbdev_dp_en_d2p;
   logic cio_usbdev_dn_p2d, cio_usbdev_dn_d2p, cio_usbdev_dn_en_d2p;
 
+`ifdef VERILATOR_SEPARATE_CLOCKS
+  // Still used in a few places.
+  wire clk_i = clk_sys_i;
+`else
+  wire clk_sys_i = clk_i;
+  wire clk_io_i = clk_i;
+  wire clk_usb_i = clk_i;
+`endif
+
   chip_earlgrey_verilator u_dut (
+`ifdef VERILATOR_SEPARATE_CLOCKS
+    .clk_sys_i,
+    .clk_io_i,
+    .clk_usb_i,
+    .clk_aon_i,
+`else
     .clk_i,
+`endif
     .rst_ni,
 
     // communication with GPIO
@@ -68,7 +95,7 @@ module chip_sim_tb (
 
   // GPIO DPI
   gpiodpi #(.N_GPIO(32)) u_gpiodpi (
-    .clk_i      (clk_i),
+    .clk_i      (clk_io_i),
     .rst_ni     (rst_ni),
     .gpio_p2d   (cio_gpio_p2d),
     .gpio_d2p   (cio_gpio_d2p),
@@ -85,7 +112,7 @@ module chip_sim_tb (
     .BAUD('d7_200),
     .FREQ('d500_000)
   ) u_uart (
-    .clk_i  (clk_i),
+    .clk_i  (clk_io_i),
     .rst_ni (rst_ni),
     .tx_o   (cio_uart_rx_p2d),
     .rx_i   (cio_uart_tx_d2p)
@@ -94,7 +121,7 @@ module chip_sim_tb (
 `ifdef DMIDirectTAP
   // OpenOCD direct DMI TAP
   bind rv_dm dmidpi u_dmidpi (
-    .clk_i,
+    .clk_i          (clk_i),
     .rst_ni,
     .dmi_req_valid,
     .dmi_req_ready,
@@ -114,7 +141,7 @@ module chip_sim_tb (
   // See also #5221.
   //
   // jtagdpi u_jtagdpi (
-  //   .clk_i,
+  //   .clk_i       (clk_sys_i),
   //   .rst_ni,
 
   //   .jtag_tck    (cio_jtag_tck),
@@ -128,7 +155,7 @@ module chip_sim_tb (
 
   // SPI DPI
   spidpi u_spi (
-    .clk_i  (clk_i),
+    .clk_i  (clk_io_i),
     .rst_ni (rst_ni),
     .spi_device_sck_o     (cio_spi_device_sck_p2d),
     .spi_device_csb_o     (cio_spi_device_csb_p2d),
@@ -139,16 +166,15 @@ module chip_sim_tb (
 
   // USB DPI
   usbdpi u_usbdpi (
-    .clk_i           (clk_i),
+    .clk_i           (clk_usb_i),
     .rst_ni          (rst_ni),
-    .clk_48MHz_i     (clk_i),
+    .clk_48MHz_i     (clk_usb_i),
     .enable          (1'b1),
-    .sense_p2d       (cio_usbdev_sense_p2d),
-    .pullupdp_d2p    (cio_usbdev_dp_pullup_d2p),
-    .pullupdn_d2p    (cio_usbdev_dn_pullup_d2p),
+    .dp_en_p2d       (),
     .dp_p2d          (cio_usbdev_dp_p2d),
     .dp_d2p          (cio_usbdev_dp_d2p),
     .dp_en_d2p       (cio_usbdev_dp_en_d2p),
+    .dn_en_p2d       (),
     .dn_p2d          (cio_usbdev_dn_p2d),
     .dn_d2p          (cio_usbdev_dn_d2p),
     .dn_en_d2p       (cio_usbdev_dn_en_d2p),
@@ -157,7 +183,10 @@ module chip_sim_tb (
     .d_en_d2p        (cio_usbdev_d_en_d2p),
     .se0_d2p         (cio_usbdev_se0_d2p),
     .rx_enable_d2p   (cio_usbdev_rx_enable_d2p),
-    .tx_use_d_se0_d2p(cio_usbdev_tx_use_d_se0_d2p)
+    .tx_use_d_se0_d2p(cio_usbdev_tx_use_d_se0_d2p),
+    .sense_p2d       (cio_usbdev_sense_p2d),
+    .pullupdp_d2p    (cio_usbdev_dp_pullup_d2p),
+    .pullupdn_d2p    (cio_usbdev_dn_pullup_d2p)
   );
 
   `define RV_CORE_IBEX      u_dut.top_earlgrey.u_rv_core_ibex

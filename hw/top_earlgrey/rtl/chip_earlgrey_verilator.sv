@@ -2,9 +2,20 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
+`ifndef VERILATOR_SEPARATE_CLOCKS
+`define VERILATOR_SEPARATE_CLOCKS
+`endif
+
 module chip_earlgrey_verilator (
   // Clock and Reset
+`ifdef VERILATOR_SEPARATE_CLOCKS
+  input clk_sys_i,
+  input clk_io_i,
+  input clk_usb_i,
+  input clk_aon_i,
+`else
   input clk_i,
+`endif
   input rst_ni,
 
   // communication with GPIO
@@ -219,6 +230,17 @@ module chip_earlgrey_verilator (
   logic [ast_pkg::Pad2AstInWidth-1:0] pad2ast;
   assign pad2ast = '0;
 
+`ifdef VERILATOR_SEPARATE_CLOCKS
+  ast_pkg::clks_osc_byp_t clks_osc_byp;
+  assign clks_osc_byp = '{
+    usb: clk_usb_i,
+    sys: clk_sys_i,
+    io:  clk_io_i,
+    aon: clk_aon_i
+  };
+
+  wire clk_aon = clk_aon_i;
+`else
   logic clk_aon;
   // reset is not used below becuase verilator uses only sync resets
   // and also does not under 'x'.
@@ -243,6 +265,7 @@ module chip_earlgrey_verilator (
     io:  clk_i,
     aon: clk_aon
   };
+`endif
 
   ///////////////////////////////////////
   // AST - Common with other platforms //
@@ -348,7 +371,8 @@ module chip_earlgrey_verilator (
     .Pad2AstInWidth(ast_pkg::Pad2AstInWidth)
   ) u_ast (
     // different between verilator and other platforms
-    .clk_ast_ext_i         ( clk_i ),
+// TODO: AL; not at all sure about this clock connection
+    .clk_ast_ext_i         ( clk_sys_i ),
     .por_ni                ( rst_ni ),
     // USB IO Pull-up Calibration Setting
     .usb_io_pu_cal_o       (  ),
@@ -507,10 +531,17 @@ module chip_earlgrey_verilator (
   ) top_earlgrey (
     // update por / reset connections, this is not quite right here
     .por_n_i                      (por_n             ),
+`ifdef VERILATOR_SEPARATE_CLOCKS
+    .clk_main_i                   (clk_sys_i         ),
+    .clk_io_i                     (clk_io_i          ),
+    .clk_usb_i                    (clk_usb_i         ),
+    .clk_aon_i                    (clk_aon_i         ),
+`else
     .clk_main_i                   (clk_i             ),
     .clk_io_i                     (clk_i             ),
     .clk_usb_i                    (clk_i             ),
     .clk_aon_i                    (clk_aon           ),
+`endif
     // change the above
     .clks_ast_o                   (clkmgr_aon_clocks ),
     .clk_main_jitter_en_o         ( jen              ),

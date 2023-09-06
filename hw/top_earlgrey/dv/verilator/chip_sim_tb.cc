@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <string.h>
 #include <string>
 #include <vector>
 
@@ -15,8 +16,53 @@ int main(int argc, char **argv) {
   chip_sim_tb top;
   VerilatorMemUtil memutil;
   VerilatorSimCtrl &simctrl = VerilatorSimCtrl::GetInstance();
-  simctrl.SetTop(&top, &top.clk_i, &top.rst_ni,
+
+  simctrl.SetTop(&top, &top.rst_ni,
                  VerilatorSimCtrlFlags::ResetPolarityNegative);
+
+  // Create our clocks with their default parameters.
+  //
+  // 100MHz system clock, 1ns jitter.
+  // 24MHz I/O clock, no jitter.
+  // 48MHz USB clock, no jitter.
+  // 200kHz AON clock, no jitter.
+  //
+  // All times are in picoseconds for greater accuracy.
+  const uint32_t nano = 1000u;  // in ps.
+  const uint32_t micro = 1000u * nano;
+  const uint32_t milli = 1000u * micro;
+  const uint32_t sys_hperiod = micro / 200u;  // 100MHz cycle
+
+  uint32_t io_hperiod = micro / 192u;   // 96MHz cycle
+  uint32_t usb_hperiod = micro / 96u;   // 48MHz cycle
+  uint32_t aon_hperiod = milli / 400u;  // 200kHz cycle
+  uint32_t sys_jitter = nano;
+  // Make jitter much more obvious in waveforms
+  // uint32_t sys_jitter = sys_hperiod * 2 / 3;
+
+  // TODO: pick up command line parameters to override clock settings
+  for (int i = 1; i < argc; ++i) {
+    if (!strcmp(argv[i], "override_clks")) {
+      // Set clocks back to their previous behavior.
+      sys_jitter = 0u;
+      usb_hperiod = sys_hperiod;
+      io_hperiod = sys_hperiod;
+      aon_hperiod = sys_hperiod * 4u;
+    }
+  }
+
+  // Main system clock must be added first.
+  VerilatorSimClock clk_sys(&top.clk_sys_i, sys_hperiod, sys_hperiod,
+                            sys_jitter, sys_jitter);
+  // Supplementary clocks.
+  VerilatorSimClock clk_io(&top.clk_io_i, io_hperiod, io_hperiod, 0u, 0u);
+  VerilatorSimClock clk_usb(&top.clk_usb_i, usb_hperiod, usb_hperiod, 0u, 0u);
+  VerilatorSimClock clk_aon(&top.clk_aon_i, aon_hperiod, aon_hperiod, 0u, 0u);
+
+  simctrl.AddClock(clk_sys);
+  simctrl.AddClock(clk_io);
+  simctrl.AddClock(clk_usb);
+  simctrl.AddClock(clk_aon);
 
   std::string top_scope("TOP.chip_sim_tb.u_dut.top_earlgrey");
   std::string ram1p_adv_scope(
