@@ -17,10 +17,10 @@ module usb_fs_nb_out_pe #(
   parameter logic [4:0] NumOutEps = 2,
   parameter int unsigned MaxOutPktSizeByte = 32,
   // Targeting 17 bit times for the timeout. The counter runs on the 48 MHz
-  // clock. The SOP delay to rx_pkt_start_i is 3 bit times, but the two
+  // clock. The SOP delay to rx_pkt_start_i is 1.5 bit times, but the two
   // packets go in the same direction, so this is negated. This timeout
   // originates from Section 7.1.19.1 of the USB 2.0 specification.
-  parameter int unsigned AckTimeoutCnt = 17 * 4,
+  parameter int unsigned AckTimeoutCnt = (17 * 4) - 1, // -1 because [N-1:0] counted
   localparam int unsigned OutEpW = $clog2(NumOutEps), // derived parameter
   localparam int unsigned PktW = $clog2(MaxOutPktSizeByte), // derived parameter
   localparam int unsigned AckTimeoutCntW = $clog2(AckTimeoutCnt) // derived parameter
