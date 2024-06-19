@@ -19,6 +19,9 @@ class usb20_item extends uvm_sequence_item;
   // packet items.
   bit low_speed;
 
+  // TODO: Indicates that a response shall NOT be automatically collected from the device.
+  bit do_not_wait = 1'b0;
+
   // Validity indicators that apply to all packet types; used by the monitor at metadata for the
   // scoreboard.
   bit valid_sync;      // SYNC signal properly formed.
