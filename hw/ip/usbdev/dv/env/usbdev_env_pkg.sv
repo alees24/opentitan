@@ -98,6 +98,7 @@ package usbdev_env_pkg;
   `include "usbdev_data_integrity.sv"
   `include "usbdev_pkt_manager.sv"
   `include "usbdev_TransactionManager.sv"
+  `include "usbdev_bfm.sv"
   `include "usbdev_scoreboard.sv"
   `include "usbdev_env.sv"
   `include "usbdev_vseq_list.sv"

@@ -154,7 +154,7 @@ class data_pkt extends usb20_item;
   `uvm_object_utils_end
 
   function new(string name = "", byte unsigned d[] = {}, pid_type_e pid = PidTypeData0);
-    super.new(name, PktTypeToken);
+    super.new(name, PktTypeData);
     m_pid_type = pid;
     data = d;
     crc16 = exp_crc();
@@ -271,7 +271,7 @@ class handshake_pkt extends usb20_item;
   `uvm_object_utils_end
 
   function new(string name = "", pid_type_e pid = PidTypeAck);
-    super.new(name, PktTypeToken);
+    super.new(name, PktTypeHandshake);
     m_pid_type = pid;
   endfunction
 endclass

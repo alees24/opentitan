@@ -346,6 +346,7 @@ class usb20_monitor extends dv_base_monitor #(
         data = new[data.size() + 1](data);
         data[i] = destuffed_packet[i + 16];
       end
+// TODO: is all this foo actually necessary now?!
       data = {<<8{data}};
       data = {<<{data}};
       // Bits_to_byte conversion of data

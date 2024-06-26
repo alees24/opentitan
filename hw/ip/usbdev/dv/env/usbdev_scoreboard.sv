@@ -9,14 +9,8 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
 );
   `uvm_component_utils(usbdev_scoreboard)
 
-  usbdev_packetiser m_packetiser;
-  usbdev_transaction_manager m_usbdev_trans;
-  usbdev_pkt_manager m_pkt_manager;
-  usb20_item m_usb20_item;
-
-  // Arrays to store actual packet and expected packet
-  bit expected_pkt[];
-  bit actual_pkt[];
+  // Model of USBDEV.
+  usbdev_bfm bfm;
 
   // TLM agent fifos
   uvm_tlm_analysis_fifo #(usb20_item) req_usb20_fifo;
@@ -26,39 +20,14 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
   local bit [NumUsbdevInterrupts-1:0] intr_exp;
   local bit [NumUsbdevInterrupts-1:0] intr_exp_at_addr_phase;
 
-  // local queues to hold incoming packets pending comparison
-  local bit actual_pkt_q[$][];
-  local bit expected_pkt_q[$][];
-
-  // Local variables
-  local bit ep_out_enable;
-  local bit rx_enable_out;
-  local bit rx_enable_setup;
-  local bit pkt_ack;
-  local bit pkt_nak;
-  local bit pkt_stall;
-  local bit pkt_sent;
-  local bit stall;
-  local bit iso_trans;
-  local bit [31:0] ep_out_enable_reg;
-  local bit [31:0] ep_in_enable_reg;
-  local bit [31:0] rx_enable_setup_reg;
-  local bit [31:0] rx_enable_out_reg;
-  local bit [31:0] out_stall_reg;
-  local bit [31:0] in_stall_reg;
-  local bit [31:0] out_iso_reg;
-  local bit [31:0] in_iso_reg;
-  local bit [3:0]  endp_index;
-  local bit [7:0]  act_pid, exp_pid;
+  // Local queue of expected responses from the DUT.
+  local usb20_item expected_rsp_q[$];
 
   `uvm_component_new
 
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    m_packetiser = new();
-    m_pkt_manager = new();
-    m_usbdev_trans = new();
-    m_usb20_item = new();
+    bfm = new();
     req_usb20_fifo = new("req_usb20_fifo", this);
     rsp_usb20_fifo = new("rsp_usb20_fifo", this);
   endfunction
@@ -70,18 +39,13 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
   task run_phase(uvm_phase phase);
     super.run_phase(phase);
     fork
-      process_usb20_fifo();
-      process_usb20_pkt();
+      process_usb20_req();
+      process_usb20_rsp();
     join_none
   endtask
 
-  // TODO: This is an incomplete placeholder; in time a BFM shall model what the DUT shall
-  // consider to be a valid packet.
-  function valid_packet(ref usb20_item item);
-    return (item.m_pid_type != PidTypeSofToken && item.valid_pid());
-  endfunction
-
-  virtual task process_usb20_fifo();
+  // Receive and model the request from the host/driver to the DUT.
+  virtual task process_usb20_req();
     usb20_item item;
     forever begin
       req_usb20_fifo.get(item);
@@ -91,104 +55,56 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
         EvResume:     `uvm_info(`gfn, "Resume Signaling received from monitor", UVM_MEDIUM)
         EvDisconnect: `uvm_info(`gfn, "VBUS Disconnection received from monitor", UVM_MEDIUM)
         EvConnect:    `uvm_info(`gfn, "VBUS Connection received from monitor", UVM_MEDIUM)
-        EvPacket:
-          // TODO: This check is temporary and prevents simulations from failing as a result of this
-          // code assuming the validity of the USB traffic, now that sequences are deliberately
-          // injecting bad traffic.
-          if (valid_packet(item)) begin
-            m_packetiser.pack_pkt(item);
-            usbdev_expected_pkt();
-            void'(item.pack(actual_pkt));
-            actual_pkt_q.push_back(actual_pkt);
-            for (int i = 0; i <= 7; i++) begin
-              act_pid = {act_pid, actual_pkt[i]};
+        EvPacket: begin
+          // Response to received packet, if any.
+          usb20_item rsp;
+          // Driver -> DUT traffic is just passed to the BFM to update its internal state.
+          case (item.m_pkt_type)
+            PktTypeSoF: begin
+              sof_pkt sof;
+              `downcast(sof, item);
+              bfm.sof_packet(sof);
             end
-            `uvm_info(`gfn, $sformatf("req port item :\n%0s", item.sprint()), UVM_DEBUG)
-            compare_usb20_pkt(item);
-          end else begin
-            `uvm_info(`gfn, "Invalid packet received from monitor", UVM_MEDIUM)
-          end
+            PktTypeToken: begin
+              token_pkt token;
+              `downcast(token, item);
+              if (bfm.token_packet(token, rsp)) expected_rsp_q.push_back(rsp);
+            end
+            PktTypeData: begin
+              data_pkt data;
+              `downcast(data, item);
+              if (bfm.data_packet(data, rsp)) expected_rsp_q.push_back(rsp);
+            end
+            PktTypeHandshake: begin
+              handshake_pkt handshake;
+              `downcast(handshake, item);
+              bfm.handshake_packet(handshake);
+            end
+            // The BFM does not need to know about Special PIDs since the DUT shall ignore them.
+            default: `uvm_info(`gfn, "Special PID packet received from monitor", UVM_DEBUG)
+          endcase
+        end
         default: `uvm_fatal(`gfn, $sformatf("Invalid/unexpected event type %p", item.m_ev_type))
       endcase
     end
   endtask
 
-  // usbdev_expected_pkt task : To run the predictor
   // -------------------------------
-  virtual task usbdev_expected_pkt();
-    m_usbdev_trans.transaction_manager(m_packetiser.token_pkt_arr, m_packetiser.data_pkt_arr,
-                                       m_packetiser.handshake_pkt_arr);
-    m_pkt_manager.pop_packet(expected_pkt);
-    expected_pkt_q.push_back(expected_pkt);
-    for (int i = 0; i <= 7; i++) begin
-      exp_pid = {exp_pid, expected_pkt[i]};
-    end
-  endtask
-
-  // process_usb20_pkt task : Process queue
-  // and compare the actual pkt with expected pkt
-  // -------------------------------
-  virtual task process_usb20_pkt();
-    usb20_item item;
+  virtual task process_usb20_rsp();
+    usb20_item act_item;
+    usb20_item exp_item;
     forever begin
-      rsp_usb20_fifo.get(item);
-      usbdev_expected_pkt();
-      void'(item.pack(actual_pkt));
-      actual_pkt_q.push_back(actual_pkt);
-      for (int i = 0; i <= 7; i++) begin
-        act_pid = {act_pid, actual_pkt[i]};
-      end
-      `uvm_info(`gfn, $sformatf("rsp port item :\n%0s", item.sprint()), UVM_DEBUG)
-      compare_usb20_pkt(item);
+      // Collect an actual response from the DUT.
+      rsp_usb20_fifo.get(act_item);
+      `uvm_info(`gfn, "Comparing DUT response against the BFM exected response:", UVM_MEDIUM)
+      `uvm_info(`gfn, $sformatf(" - Actual:\n%0s", act_item.sprint()), UVM_MEDIUM)
+      `DV_CHECK_GT(expected_rsp_q.size(), 0, "Unexpected response from DUT; no expectation ready")
+      // Compare it against the expected response.
+      exp_item = expected_rsp_q.pop_front();
+      `uvm_info(`gfn, $sformatf(" - Expected:\n%0s", exp_item.sprint()), UVM_MEDIUM)
+      `DV_CHECK_EQ(act_item.compare(exp_item), 1, "DUT response does not match expectation")
     end
   endtask
-
-  // compare_usb20_pkt task : To check pkt transmission accuracy
-  // -------------------------------
-  virtual task compare_usb20_pkt(usb20_item item);
-    if (predict_errors(item)) begin
-      void'(actual_pkt_q.pop_front());
-      void'(expected_pkt_q.pop_front());
-      return;
-    end
-    if (actual_pkt_q.size() > 0) begin
-      // TODO: this is not safe because of macro expansion, and additionally it is doing nothing
-      // useful at present but does cause test failures.
-      // `DV_CHECK_EQ(actual_pkt_q.pop_front(), expected_pkt_q.pop_front());
-      // `uvm_info(`gfn,"item match",UVM_DEBUG)
-    end
-  endtask
-
-  // predict_errors function : To Predict error type
-  // -------------------------------
-  virtual function bit predict_errors(usb20_item item);
-    bit [15:0] act_crc16, exp_crc16;
-    bit [4:0]  act_crc5, exp_crc5;
-    if (act_pid != exp_pid) begin
-      `uvm_info(`gfn,"PID ERROR",UVM_DEBUG)
-      return 1;
-    end
-    if(item.m_pid_type inside {PidTypeOutToken, PidTypeInToken, PidTypeSetupToken}) begin
-      for (int i = 19; i <= 23; i++) begin
-        act_crc5 = {act_crc5, actual_pkt[i]};
-        exp_crc5 = {exp_crc5, expected_pkt[i]};
-      end
-      if (act_crc5 != exp_crc5) begin
-        `uvm_info(`gfn,"CRC5 ERROR",UVM_DEBUG)
-        return 1;
-      end
-    end
-    if (item.m_pid_type inside {PidTypeData0, PidTypeData1}) begin
-      for(int i = actual_pkt.size() - 16; i <= actual_pkt.size() - 1; i++) begin
-        act_crc16 = {act_crc16, actual_pkt[i]};
-        exp_crc16 = {exp_crc16, expected_pkt[i]};
-      end
-      if (act_crc16 != exp_crc16) begin
-      `uvm_info(`gfn,"CRC16 ERROR",UVM_DEBUG)
-      return 1;
-      end
-    end
-  endfunction
 
   // These two tasks are overridden because the implementation in the base class performs checks
   // against predictions, whereas the USBDEV packet buffer memory may change essentially at any
@@ -198,369 +114,294 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
   // have been made available for DUT use may change, since we _can_ track which buffers have been
   // placed in the Av OUT/SETUP FIFOs and which have subsequently been removed from the RX FIFO.
   virtual task process_mem_write(tl_seq_item item, string ral_name);
-    // Do nothing, not modeled.
+    // Update the BFM's model of the DUT packet buffer memory.
+// TODO:
+//    bfm.write_buffer(item.a_data);
   endtask
   virtual task process_mem_read(tl_seq_item item, string ral_name);
-    // Do nothing, not modeled.
+    // Check that the word read from the DUT packet buffer matches that within the BFM.
   endtask
 
-  virtual task process_tl_access(tl_seq_item item, tl_channels_e channel, string ral_name);
-    uvm_reg csr;
-    bit     do_read_check   = 1'b1;
-    // Is the access is to the packet buffer memory of the USB device?
-    bit     buffer_mem      = 1'b0;
-    bit     write           = item.is_write();
-    string  csr_name;
-    bit [TL_AW-1:0] addr_mask = ral.get_addr_mask();
-    uvm_reg_addr_t csr_addr = cfg.ral_models[ral_name].get_word_aligned_addr(item.a_addr);
+  // Return the index that a register name refers to e.g. "configin_1" yields 1
+  function int unsigned get_index_from_reg_name(string reg_name);
+    int str_len = reg_name.len();
+    // Note: this extracts the final two characters which are either '_y' or 'xy',
+    //       and because '_' is permitted in (System)Verilog numbers, it works for 0-99
+    string index_str = reg_name.substr(str_len-2, str_len-1);
+    return index_str.atoi();
+  endfunction
 
-    // if access was to a valid csr, get the csr handle
+  // Look up the address of a TL access and return information about the target CSR (handle, name,
+  // and index if it's within a bank of similar CSRs) or memory (name, word index within the
+  // memory).
+  function string lookup_tl_addr(ref tl_seq_item item, input string ral_name,
+                                 output uvm_reg csr, output int unsigned index);
+    // Attempt to locate a CSR at this address.
+    uvm_reg_addr_t csr_addr = cfg.ral_models[ral_name].get_word_aligned_addr(item.a_addr);
     if (csr_addr inside {cfg.ral_models[ral_name].csr_addrs}) begin
+      string csr_name;
       csr = cfg.ral_models[ral_name].default_map.get_reg_by_offset(csr_addr);
       `DV_CHECK_NE_FATAL(csr, null)
       csr_name = csr.get_name();
-    end
-    // if access was to a valid mem buffer location; there is only a single memory window that
-    // provides access to the packet buffer memory.
-    else if (is_mem_addr(item, ral_name)) begin
-      buffer_mem = 1'b1;
-      csr_name = "buffer";
+      index = get_index_from_reg_name(csr_name);
+      return csr_name;
+    end else if (is_mem_addr(item, ral_name)) begin
+      // There is only a single memory window; it provides access to the packet buffer memory.
+      uvm_mem mem = ral.default_map.get_mem_by_offset(item.a_addr);
+      uvm_reg_addr_t masked_addr = item.a_addr & ral.get_addr_mask();
+      uvm_reg_addr_t base;
+      `DV_CHECK_NE(mem, null)
+      base = mem.get_offset(0, ral.default_map);
+      index = (masked_addr - base) >> $clog2(TL_DW / 8);
+      // Caller shall use the name to differentiate from the CSRs.
+      csr = null;
+      return "buffer";
     end else begin
-      `uvm_fatal(`gfn, $sformatf("Access unexpected addr 0x%0h", csr_addr))
+      `uvm_fatal(`gfn, $sformatf("Access to unexpected addr 0x%0h", csr_addr))
     end
+  endfunction
 
-    if (channel == AddrChannel) begin
-      // if incoming access is a write to a valid csr, then make updates right away
-      if (write & ~buffer_mem) begin
-        void'(csr.predict(.value(item.a_data), .kind(UVM_PREDICT_WRITE), .be(item.a_mask)));
-      end
-    end
+  // TL Address Channel transaction.
+  function void process_tl_addr(ref tl_seq_item item, input string ral_name);
+    logic [TL_DW-1:0] wdata = item.a_data;
+    int unsigned index;
+    uvm_reg csr;
+    string csr_name = lookup_tl_addr(item, ral_name, csr, index);
 
-    // process the csr req
-    // for write, update local variable and fifo at address phase
-    // for read, update predication at address phase and compare at data phase
-    case (csr_name)
-      // add individual case item for each csr
-      "usbctrl": begin
-        // no special handling yet
-      end
-      "intr_enable": begin
-        // no special handling yet
-      end
-      "intr_test": begin
-        if (write && channel == AddrChannel) begin
-          bit [TL_DW-1:0] intr_en = ral.intr_enable.get_mirrored_value();
-          intr_exp |= item.a_data;
-          if (cfg.en_cov) begin
-            foreach (intr_exp[i]) begin
-              cov.intr_test_cg.sample(i, item.a_data[i], intr_en[i], intr_exp[i]);
-            end
-          end
-          // this field is WO - always returns 0
-          void'(csr.predict(.value(0), .kind(UVM_PREDICT_WRITE)));
-        end
-      end
-      "intr_state": begin
-        if (!write && channel == AddrChannel) begin // read & addr phase
-          intr_exp_at_addr_phase = intr_exp;
-        end else if (!write && channel == DataChannel) begin // read & data phase
-          usbdev_intr_e   intr;
-          bit [TL_DW-1:0] intr_en = ral.intr_enable.get_mirrored_value();
-          do_read_check = 1'b0;
+    // TODO: Nothing to do here for reads?
+    if (!item.is_write()) return;
+
+    `uvm_info(`gfn, $sformatf("Writing 0x%0x to %s (index %0h)", wdata, csr_name, index),
+              UVM_MEDIUM)
+    if (csr_name != "buffer") void'(csr.predict(.value(wdata), .kind(UVM_PREDICT_WRITE)));
+
+    // Update the state of the model according to this write operation.
+    case (1)
+      // Interrupt handling.
+      (!uvm_re_match("intr_test", csr_name)): begin
+        bit [TL_DW-1:0] intr_en = ral.intr_enable.get_mirrored_value();
+        intr_exp |= item.a_data;
+        if (cfg.en_cov) begin
           foreach (intr_exp[i]) begin
-            intr = usbdev_intr_e'(i); // cast to enum to get interrupt name
-            if (cfg.en_cov) begin
-              cov.intr_cg.sample(intr, intr_en[intr], intr_exp[intr]);
-              cov.intr_pins_cg.sample(intr, cfg.intr_vif.pins[intr]);
-            end
-            // TODO FIXME
-            // `DV_CHECK_EQ(item.d_data[i], intr_exp_at_addr_phase[i],
-            //              $sformatf("Interrupt: %0s", intr.name));
-            // `DV_CHECK_CASE_EQ(cfg.intr_vif.pins[i], (intr_en[i] & intr_exp[i]),
-            //              $sformatf("Interrupt_pin: %0s", intr.name));
+            cov.intr_test_cg.sample(i, item.a_data[i], intr_en[i], intr_exp[i]);
           end
-        end // read & data phase
+        end
+        // TODO: Is this required; does not the RAL predictor understand the register field type?
+        // this field is WO - always returns 0
+        // void'(csr.predict(.value(0), .kind(UVM_PREDICT_WRITE)));
+      end
+      (!uvm_re_match("intr_state", csr_name)): bfm.intr_state &= ~wdata;
+      (!uvm_re_match("intr_enable", csr_name)): bfm.intr_enable = wdata;
+
+      // Control register.
+      (!uvm_re_match("usbctrl", csr_name)): begin
+        bfm.dev_address = get_field_val(ral.usbctrl.device_address, wdata);
+        if (get_field_val(ral.usbctrl.resume_link_active, wdata)) bfm.resume_link_active();
+        bfm.set_enable(get_field_val(ral.usbctrl.enable, wdata));
+      end
+
+      // Simple register configuration writes.
+      (!uvm_re_match("ep_out_enable", csr_name)):  bfm.ep_out_enable  = NEndpoints'(wdata);
+      (!uvm_re_match("ep_in_enable", csr_name)):   bfm.ep_in_enable   = NEndpoints'(wdata);
+      (!uvm_re_match("rxenable_setup", csr_name)): bfm.rxenable_setup = NEndpoints'(wdata);
+      (!uvm_re_match("rxenable_out", csr_name)):   bfm.rxenable_out   = NEndpoints'(wdata);
+      (!uvm_re_match("set_nak_out", csr_name)):    bfm.set_nak_out    = NEndpoints'(wdata);
+      (!uvm_re_match("out_stall", csr_name)):      bfm.out_stall      = NEndpoints'(wdata);
+      (!uvm_re_match("in_stall", csr_name)):       bfm.in_stall       = NEndpoints'(wdata);
+      (!uvm_re_match("out_iso", csr_name)):        bfm.out_iso        = NEndpoints'(wdata);
+      (!uvm_re_match("in_iso", csr_name)):         bfm.in_iso         = NEndpoints'(wdata);
+
+      // configin_ registers (of which are there many), specifying IN packets for collection, are
+      // more involved.
+      (!uvm_re_match("configin_*", csr_name)): begin
+        int unsigned ep = index;  // One register per endpoint.
+        // Write 1 to clear fields.
+        if (get_field_val(ral.configin[ep].sending, wdata)) bfm.config_in[ep].sending = 1'b0;
+        if (get_field_val(ral.configin[ep].pend, wdata))    bfm.config_in[ep].pend    = 1'b0;
+        bfm.config_in[ep].buffer = get_field_val(ral.configin[ep].buffer, wdata);
+        bfm.config_in[ep].size   = get_field_val(ral.configin[ep].size,   wdata);
+        bfm.config_in[ep].rdy    = get_field_val(ral.configin[ep].rdy,    wdata);
+      end
+
+      // in_sent register, clears interrupts for sent packet.
+      (!uvm_re_match("in_sent", csr_name)): bfm.in_sent &= ~wdata;
+
+      // Available Buffer FIFOs.
+      (!uvm_re_match("avoutbuffer", csr_name)): begin
+        bfm.avout_fifo_add(get_field_val(ral.avoutbuffer.buffer, wdata));
+      end
+      (!uvm_re_match("avsetupbuffer", csr_name)): begin
+        bfm.avsetup_fifo_add(get_field_val(ral.avsetupbuffer.buffer, wdata));
+      end
+
+      // Read Only registers.
+      (!uvm_re_match("usbstat", csr_name)),
+      (!uvm_re_match("rxfifo", csr_name)),
+      (!uvm_re_match("phy_pins_sense", csr_name)): begin
+        `uvm_info(`gfn, $sformatf("Write to RO register '%0s'", csr_name), UVM_LOW)
+      end
+
+      // Write Only registers that cannot be modified by the DUT hardware.
+      (!uvm_re_match("wake_control", csr_name)),
+      (!uvm_re_match("phy_config", csr_name)),
+      (!uvm_re_match("phy_pins_drive", csr_name)): begin
+      end
+
+      // Packet buffer access.
+      (!uvm_re_match("buffer", csr_name)): bfm.write_buffer(index, wdata);
+
+      default: `uvm_fatal(`gfn, $sformatf("TL address access to '%0s' not handled", csr_name))
+    endcase
+  endfunction
+
+  // TL Data Channel transaction.
+  function void process_tl_data(ref tl_seq_item item, input string ral_name);
+    logic [TL_DW-1:0] rdata = item.d_data;
+    int unsigned index;
+    uvm_reg csr;
+    string csr_name = lookup_tl_addr(item, ral_name, csr, index);
+    bit do_read_check = 1'b1;
+
+    // TODO: Nothing to do here for writes?
+    if (item.is_write()) return;
+
+    `uvm_info(`gfn, $sformatf("Reading from %0s (index 0x%0h)", csr_name, index), UVM_MEDIUM)
+    if (csr_name != "buffer") void'(csr.predict(.value(item.d_data), .kind(UVM_PREDICT_READ)));
+
+    case (1)
+      // Interrupt handling.
+      (!uvm_re_match("intr_test", csr_name)): begin
+      end
+      (!uvm_re_match("intr_state", csr_name)): begin
+        // TODO:
       end
       "alert_test": begin
         // TODO
       end
-      "ep_out_enable": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        ep_out_enable_reg = ral.ep_out_enable[0].get_mirrored_value();
-        foreach(ep_out_enable_reg[i]) begin
-          if (ep_out_enable_reg[i] == 1'b1) begin
-            ep_out_enable = 1'b1;
-            endp_index = i;
-            break;
-          end
-         else ep_out_enable = 1'b0;
-        end
-      end
-      "ep_in_enable": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        ep_in_enable_reg = ral.ep_in_enable[0].get_mirrored_value();
-        foreach(ep_in_enable_reg[i]) begin
-          if (ep_in_enable_reg[i] == 1'b1) begin
-            endp_index = i;
-            break;
-          end
-        end
-      end
-      "usbstat": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "avoutbuffer": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "avsetupbuffer": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "rxfifo": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "rxenable_setup": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        rx_enable_setup_reg = ral.rxenable_setup[0].get_mirrored_value();
-        if (rx_enable_setup_reg[endp_index]) begin
-          rx_enable_setup = 1'b1;
-        end
-        else rx_enable_setup = 1'b0;
-      end
-      "rxenable_out": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        rx_enable_out_reg = ral.rxenable_out[0].get_mirrored_value();
-        if (rx_enable_out_reg[endp_index]) begin
-          rx_enable_out = 1'b1;
-        end
-        else rx_enable_out = 1'b0;
-      end
-      "set_nak_out": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "in_sent": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "out_stall": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        out_stall_reg = ral.out_stall[0].get_mirrored_value();
-        if (out_stall_reg[endp_index]) begin
-          stall = 1'b1;
-        end
-        else stall = 1'b0;
-      end
-      "in_stall": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        in_stall_reg = ral.in_stall[0].get_mirrored_value();
-        if (in_stall_reg[endp_index]) begin
-          stall = 1'b1;
-        end
-        else stall = 1'b0;
-      end
-      "configin_0": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_1": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_2": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_3": begin
-       if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_4": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_5": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_6": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_7": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_8": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_9": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_10": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "configin_11": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "out_iso": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        out_iso_reg = ral.out_iso[0].get_mirrored_value();
-        if (out_iso_reg[endp_index]) begin
-          iso_trans = 1'b1;
-        end
-        else iso_trans = 1'b0;
-      end
-      "in_iso": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-        in_iso_reg = ral.in_iso[0].get_mirrored_value();
-        if (in_iso_reg[endp_index]) begin
-          iso_trans = 1'b1;
-        end
-        else iso_trans = 1'b0;
-      end
-      "out_data_toggle": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "in_data_toggle": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "phy_pins_sense": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "phy_pins_drive": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "phy_config": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "wake_control": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "wake_events": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "fifo_ctrl": begin
-        // TODO
-      end
-      "count_out": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "count_in": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "count_nodata_in": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "count_errors": begin
-        if (!write && channel == DataChannel) begin
-          do_read_check = 1'b0;
-        end
-      end
-      "buffer": begin
-        do_read_check = 1'b1;
-      end
-      default: begin
-        `uvm_fatal(`gfn, $sformatf("invalid csr: %0s", csr.get_full_name()))
-      end
-    endcase
-    // On reads, if do_read_check, is set, then check mirrored_value against item.d_data
-    if (!write && channel == DataChannel) begin
-      if (do_read_check) begin
-        if (buffer_mem) begin
-          // No predictions of packet buffer memory content within the scoreboard; checked in vseqs.
-        end else begin
-          `DV_CHECK_EQ(csr.get_mirrored_value(), item.d_data,
-                       $sformatf("reg name: %0s", csr.get_full_name()))
-        end
-      end else begin
-        void'(csr.predict(.value(item.d_data), .kind(UVM_PREDICT_READ)));
-      end
-    end
-    // hand_shaking : send regs information required for hanshaking to predictor
-    pkt_ack = ep_out_enable & (rx_enable_out || rx_enable_setup) & ~stall;
-    pkt_nak = ~rx_enable_out & ~rx_enable_setup;
-    pkt_stall = stall;
-    if (pkt_ack & ~pkt_stall) begin
-      m_usbdev_trans.m_usbdev_handshake_pkt = ACK;
-    end else if (pkt_nak & ~pkt_stall) begin
-      m_usbdev_trans.m_usbdev_handshake_pkt = NAK;
-    end else if(stall) begin
-      // Give priority to setup pkt over stall
-      if(ep_out_enable & rx_enable_setup)
-        m_usbdev_trans.m_usbdev_handshake_pkt = ACK;
-      else
-        m_usbdev_trans.m_usbdev_handshake_pkt = STALL;
-    end
 
-    // Check weather transfer type is isochoronus or not
-    if (iso_trans) begin
-      m_usbdev_trans.m_usb_transfer = IsoTrans;
+      // Simple register configuration reads; these registers are unmodified by the DUT hardware.
+      (!uvm_re_match("ep_out_enable", csr_name)),
+      (!uvm_re_match("ep_in_enable", csr_name)),
+      (!uvm_re_match("rxenable_setup", csr_name)),
+      (!uvm_re_match("rxenable_out", csr_name)),
+      (!uvm_re_match("set_nak_out", csr_name)),
+      (!uvm_re_match("out_stall", csr_name)),
+      (!uvm_re_match("in_stall", csr_name)),
+      (!uvm_re_match("out_iso", csr_name)),
+      (!uvm_re_match("in_iso", csr_name)): do_read_check = 1'b1;
+
+      (!uvm_re_match("usbstat", csr_name)): begin
+        int unsigned avsetup_lvl = bfm.avsetup_fifo.size();
+        int unsigned avout_lvl = bfm.avout_fifo.size();
+        int unsigned rx_lvl = bfm.rx_fifo.size();
+        bit avsetup_full = (avsetup_lvl >= AvSetupFIFODepth);
+        bit avout_full = (avout_lvl >= AvOutFIFODepth);
+        // Form a prediction from the current BFM state; this is mostly the status information on
+        // the FIFOs.
+        uvm_reg_data_t usbstat = get_csr_val_with_updated_field(ral.usbstat.frame, 0, bfm.frame);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.host_lost, usbstat, bfm.host_lost);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.link_state, usbstat, bfm.link_state);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.sense, usbstat, bfm.sense);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.av_out_depth, usbstat, avout_lvl);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.av_setup_depth, usbstat, avsetup_lvl);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.av_out_full, usbstat, avout_full);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.rx_depth, usbstat, rx_lvl);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.av_setup_full, usbstat, avsetup_full);
+        usbstat = get_csr_val_with_updated_field(ral.usbstat.rx_empty, usbstat, !rx_lvl);
+        `DV_CHECK_EQ(rdata, usbstat)
+        void'(csr.predict(.value(usbstat), .kind(UVM_PREDICT_READ)));
+      end
+      (!uvm_re_match("avoutbuffer", csr_name)),
+      (!uvm_re_match("avsetupbuffer", csr_name)): begin
+        // TODO: DV should never be reading from these.
+        do_read_check = 1'b0;
+      end
+
+      // TODO:
+      (!uvm_re_match("rxfifo", csr_name)): begin
+        // Collect a RX FIFO entry from the BFM, if there is one.
+        usbdev_bfm::rxfifo_entry entry;
+        if (bfm.rx_fifo_read(entry)) begin
+          // Check the fields of the RX FIFO match the expectations produced by the BFM.
+          `DV_CHECK_EQ(get_field_val(ral.rxfifo.buffer, rdata), entry.buffer, "RX buffer mismatch")
+          `DV_CHECK_EQ(get_field_val(ral.rxfifo.ep,     rdata), entry.ep,     "RX ep mismatch")
+          `DV_CHECK_EQ(get_field_val(ral.rxfifo.setup,  rdata), entry.setup,  "RX setup mismatch")
+          `DV_CHECK_EQ(get_field_val(ral.rxfifo.size,   rdata), entry.size,   "RX size mismatch")
+        end else begin
+          // TODO: DV should never really be doing this; but the DUT won't fault it.
+        end
+        do_read_check = 1'b0;
+      end
+
+      // configin_ registers (of which are there many), specifying IN packets for collection.
+      // TODO: the BFM has its own idea of these registers.
+      (!uvm_re_match("configin_*", csr_name)): do_read_check = 1'b0;
+
+      (!uvm_re_match("in_sent", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+
+      // The BFM has internal knowledge of the Data Toggle bits because packet transactions
+      // and link resets modify them.
+      (!uvm_re_match("out_data_toggle", csr_name)): begin
+         void'(csr.predict(.value(bfm.out_toggles), .kind(UVM_PREDICT_READ)));
+      end
+      (!uvm_re_match("in_data_toggle", csr_name)): begin
+         void'(csr.predict(.value(bfm.out_toggles), .kind(UVM_PREDICT_READ)));
+      end
+
+      (!uvm_re_match("phy_pins_sense", csr_name)): do_read_check = 1'b0;
+
+      (!uvm_re_match("wake_events", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+      (!uvm_re_match("fifo_ctrl", csr_name)): begin
+        // TODO
+        do_read_check = 1'b0;
+      end
+      (!uvm_re_match("count_out", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+      (!uvm_re_match("count_in", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+      (!uvm_re_match("count_nodata_in", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+      (!uvm_re_match("count_errors", csr_name)): begin
+        do_read_check = 1'b0;
+      end
+
+      // Write Only registers that cannot be altered by the DUT hardware.
+      (!uvm_re_match("intr_enable", csr_name)),
+      (!uvm_re_match("wake_control", csr_name)),
+      (!uvm_re_match("phy_config", csr_name)),
+      (!uvm_re_match("phy_pins_drive", csr_name)): begin
+      end
+
+      // Packet buffer access.
+      (!uvm_re_match("buffer", csr_name)): begin
+        logic [TL_DW-1:0] exp_data = bfm.read_buffer(index);
+        `DV_CHECK_EQ(item.d_data, exp_data, "Unexpected read data from packet buffer memory")
+        do_read_check = 1'b0;  // Do not attempt to access/check 'csr' below.
+      end
+
+      default: `uvm_fatal(`gfn, $sformatf("TL data access to '%0s' not handled", csr_name))
+    endcase
+    // On reads, if do_read_check is set, check the mirrored value against `item.d_data`
+    if (do_read_check) begin
+      `DV_CHECK_EQ(csr.get_mirrored_value(), item.d_data,
+                   $sformatf("reg name: %0s", csr.get_full_name()))
     end
-    else begin
-      m_usbdev_trans.m_usb_transfer = CtrlTrans;
-    end
+    if (csr_name != "buffer") void'(csr.predict(.value(item.d_data), .kind(UVM_PREDICT_READ)));
+  endfunction
+
+  virtual task process_tl_access(tl_seq_item item, tl_channels_e channel, string ral_name);
+    case (channel)
+      AddrChannel: process_tl_addr(item, ral_name);
+      DataChannel: process_tl_data(item, ral_name);
+      default: `uvm_fatal(`gfn, $sformatf("Invalid channel: %0h", channel))
+    endcase
   endtask
 
   virtual function void reset(string kind = "HARD");
@@ -568,8 +409,7 @@ class usbdev_scoreboard extends cip_base_scoreboard #(
     // Reset local fifos queues and variables
     req_usb20_fifo.flush();
     rsp_usb20_fifo.flush();
-    actual_pkt_q.delete();
-    expected_pkt_q.delete();
+    expected_rsp_q.delete();
     intr_exp = 0;
     intr_exp_at_addr_phase = 0;
   endfunction
