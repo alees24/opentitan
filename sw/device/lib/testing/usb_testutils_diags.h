@@ -122,7 +122,6 @@ void usbutils_memcpy_from_mmio32(mmio_region_t base, uint32_t offset,
  */
 void usbutils_memcpy_to_mmio32(mmio_region_t base, uint32_t offset,
                                const void *src, size_t len);
->>>>>>> ff84a8554c ([usbdev_mem] Packet memory T-L test)
 #endif
 
 // Used for tracing what is going on. This may impact timing which is critical

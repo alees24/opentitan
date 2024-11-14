@@ -31,16 +31,14 @@
 #endif
 
 // Simple LFSR for 8-bit sequences
-#define LFSR_ADVANCE(lfsr) \
-  (((lfsr) << 1) ^         \
-   ((((lfsr) >> 1) ^ ((lfsr) >> 2) ^ ((lfsr) >> 3) ^ ((lfsr) >> 7)) & 1U))
+/// Note: zero is an isolated state that shall be avoided
+#define LFSR_ADVANCE(lfsr)     \
+  (uint8_t)(                   \
+      (uint8_t)((lfsr) << 1) ^ \
+      ((((lfsr) >> 1) ^ ((lfsr) >> 2) ^ ((lfsr) >> 3) ^ ((lfsr) >> 7)) & 1U))
 
 // Total size of packet buffer memory in bytes
 #define USBDEV_PACKET_MEM_SIZE (USBDEV_NUM_BUFFERS * USBDEV_MAX_PACKET_SIZE)
-
-// Verbose repoorting?
-// Note: this will make a massive difference to the run time on t-l simulation
-static const bool verbose = false;
 
 // Basic test of packet memory function from the CPU side
 static alignas(uint32_t) uint8_t testpatt[USBDEV_PACKET_MEM_SIZE];
@@ -63,7 +61,7 @@ static status_t mem_dif_write(const dif_usbdev_t *dev, const uint8_t *data,
   TRY_CHECK(nbufs <= USBDEV_NUM_BUFFERS);
 
   for (unsigned id = 0u; id < nbufs; id++) {
-    TRY(dif_usbdev_buffer_raw_write(dev, id, &data[id * USBDEV_MAX_PACKET_SIZE],
+    TRY(dif_usbdev_buffer_raw_write(dev, (uint8_t)id, &data[id * USBDEV_MAX_PACKET_SIZE],
                                     USBDEV_MAX_PACKET_SIZE));
   }
 
@@ -76,7 +74,7 @@ static status_t mem_dif_read(const dif_usbdev_t *dev, uint8_t *data, size_t n) {
   TRY_CHECK(nbufs <= USBDEV_NUM_BUFFERS);
 
   for (unsigned id = 0u; id < nbufs; id++) {
-    TRY(dif_usbdev_buffer_raw_read(dev, id, &data[id * USBDEV_MAX_PACKET_SIZE],
+    TRY(dif_usbdev_buffer_raw_read(dev, (uint8_t)id, &data[id * USBDEV_MAX_PACKET_SIZE],
                                    USBDEV_MAX_PACKET_SIZE));
   }
 
@@ -85,7 +83,7 @@ static status_t mem_dif_read(const dif_usbdev_t *dev, uint8_t *data, size_t n) {
 
 // Perform a read from the usbdev packet memory, optionally using the DIF
 // interface
-static status_t mem_read(const dif_usbdev_t *dev, int use_dif, uint8_t *data,
+static status_t mem_read(const dif_usbdev_t *dev, unsigned use_dif, uint8_t *data,
                          size_t n) {
   if (use_dif) {
     return mem_dif_read(dev, data, n);
@@ -98,7 +96,7 @@ static status_t mem_read(const dif_usbdev_t *dev, int use_dif, uint8_t *data,
 
 // Write a block of data to the usbdev packet memory, optionally using the DIF
 // interface
-static status_t mem_write(const dif_usbdev_t *dev, int use_dif,
+static status_t mem_write(const dif_usbdev_t *dev, unsigned use_dif,
                           const uint8_t *data, size_t n) {
   if (use_dif) {
     return mem_dif_write(dev, data, n);

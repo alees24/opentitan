@@ -4038,7 +4038,7 @@ opentitan_test(
     ],
 )
 
-opentitan_functest(
+opentitan_test(
     name = "usbdev_mem_test",
     srcs = ["usbdev_mem_test.c"],
     exec_env = dicts.add(

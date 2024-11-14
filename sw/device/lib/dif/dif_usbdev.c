@@ -1022,29 +1022,27 @@ dif_result_t dif_usbdev_buffer_raw_write(const dif_usbdev_t *usbdev, uint8_t id,
   }
 
   // We're writing to the start of the buffer.
-  const uint32_t buffer_addr = get_buffer_addr(id, 0U);
-  volatile uint32_t *restrict wd =
-      &((volatile uint32_t *)
-            usbdev->base_addr.base)[buffer_addr / sizeof(uint32_t)];
-  volatile uint32_t *ewd = wd + 4 * (src_len >> 4);
+  ptrdiff_t buffer_offset = (ptrdiff_t)get_buffer_addr(id, 0U);
+  const uint32_t *restrict ews = (uint32_t *)(src + (src_len & ~15u));
   const uint32_t *restrict ws = (uint32_t *)src;
 
   // Transfer blocks of 4 x 32-bit words at a time.
-  while (wd < ewd) {
-    wd[0] = ws[0];
-    wd[1] = ws[1];
-    wd[2] = ws[2];
-    wd[3] = ws[3];
-    wd += 4;
+  while (ws < ews) {
+    mmio_region_write32(usbdev->base_addr, buffer_offset,      ws[0]);
+    mmio_region_write32(usbdev->base_addr, buffer_offset + 4,  ws[1]);
+    mmio_region_write32(usbdev->base_addr, buffer_offset + 8,  ws[2]);
+    mmio_region_write32(usbdev->base_addr, buffer_offset + 12, ws[3]);
+    buffer_offset += 16;
     ws += 4;
   }
   src_len &= 15u;
 
   if (src_len) {
     // Remaining whole words
-    ewd = wd + (src_len >> 2);
-    while (wd < ewd) {
-      *wd++ = *ws++;
+    ews = ws + (src_len >> 2);
+    while (ws < ews) {
+      mmio_region_write32(usbdev->base_addr, buffer_offset, *ws++);
+      buffer_offset += 4;
     }
     src_len &= 3u;
     if (src_len) {
@@ -1052,14 +1050,14 @@ dif_result_t dif_usbdev_buffer_raw_write(const dif_usbdev_t *usbdev, uint8_t id,
       const uint8_t *restrict bs = (uint8_t *)ws;
       uint32_t d = bs[0];
       if (src_len > 1) {
-        d |= (bs[1] << 8);
+        d |= ((uint32_t)bs[1] << 8);
         if (src_len > 2) {
-          d |= (bs[2] << 16);
+          d |= ((uint32_t)bs[2] << 16);
         }
       }
       // Note: we can only perform full 32-bit writes to the packet buffer but
       // any additional byte(s) will be ignored.
-      *wd = d;
+      mmio_region_write32(usbdev->base_addr, buffer_offset, d);
     }
   }
 
@@ -1074,21 +1072,18 @@ dif_result_t dif_usbdev_buffer_raw_read(const dif_usbdev_t *usbdev, uint8_t id,
   }
 
   // We're reading from the start of the packet buffer.
-  const uint32_t buffer_addr = get_buffer_addr(id, 0U);
-  volatile uint32_t *restrict ws =
-      &((volatile uint32_t *)
-            usbdev->base_addr.base)[buffer_addr / sizeof(uint32_t)];
+  ptrdiff_t buffer_offset = (ptrdiff_t)get_buffer_addr(id, 0U);
+  const uint32_t *restrict ewd = (uint32_t*)(dst + (dst_len & ~15u));
   uint32_t *restrict wd = (uint32_t *)dst;
-  const uint32_t *ewd = wd + 4 * (dst_len >> 4);
 
   // Transfer blocks of 4 x 32-bit words at a time
   while (wd < ewd) {
-    wd[0] = ws[0];
-    wd[1] = ws[1];
-    wd[2] = ws[2];
-    wd[3] = ws[3];
+    wd[0] = mmio_region_read32(usbdev->base_addr, buffer_offset);
+    wd[1] = mmio_region_read32(usbdev->base_addr, buffer_offset + 4);
+    wd[2] = mmio_region_read32(usbdev->base_addr, buffer_offset + 8);
+    wd[3] = mmio_region_read32(usbdev->base_addr, buffer_offset + 12);
+    buffer_offset += 16;
     wd += 4;
-    ws += 4;
   }
   dst_len &= 15u;
 
@@ -1096,14 +1091,15 @@ dif_result_t dif_usbdev_buffer_raw_read(const dif_usbdev_t *usbdev, uint8_t id,
     // Remaining whole words
     ewd = wd + (dst_len >> 2);
     while (wd < ewd) {
-      *wd++ = *ws++;
+      *wd++ = mmio_region_read32(usbdev->base_addr, buffer_offset);
+      buffer_offset += 4;
     }
     dst_len &= 3u;
     if (dst_len) {
       // Remaining individual bytes
       // Note: we can only perform full 32-bit reads from the packet buffer.
       uint8_t *restrict bd = (uint8_t *)wd;
-      uint32_t d = *ws;
+      uint32_t d = mmio_region_read32(usbdev->base_addr, buffer_offset);
       bd[0] = (uint8_t)d;
       if (dst_len > 1) {
         bd[1] = (uint8_t)(d >> 8);
