@@ -65,7 +65,7 @@ $$f_\textrm{PWM}=f_\textrm{beat}\frac{2^{16-\textrm{DC_RESN}-1}}{2^{16}}=\frac{f
 
 The PWM phase counter is reset whenever [`CFG.CNTR_EN`](registers.md#cfg) is disabled.
 
-The following figure illustrates the effect of the clock divider register.  Note that changes to [`CFG.CLK_DIV`](registers.md#cfg) or [`CFG.DC_RESN`](registers.md#cfg) only take effect when [`CFG.CNTR_EN`](registers.md#cfg) is disabled.
+The following figure illustrates the effect of the clock divider register.
 
 ```wavejson
 {signal: [

@@ -17,7 +17,10 @@ module pwm_core #(
   output logic [NOutputs-1:0]     pwm_o
 );
 
-  // Reset internal counters whenever parameters change.
+  // Reset internal counters whenever parameters are written; the new pulse cycle starts
+  // immediately.
+  // It is important not to delay until the end of the current pulse cycle if enabled because with
+  // a 27-bit clock divisor this could be many minutes.
 
   logic                clr_phase_cntr;
   logic [NOutputs-1:0] clr_blink_cntr;
@@ -79,10 +82,10 @@ module pwm_core #(
     end
   end
 
-  // Only update phase_ctr at the end of each beat
-  // Exception: allow reset to zero whenever not enabled
+  // Only update phase_ctr at the end of each beat.
+  // Exception: allow reset to zero whenever the phase counter parameters are written.
   assign lshift = 4'd15 - dc_resn;
-  assign phase_ctr_en = beat_end & (clr_phase_cntr | cntr_en);
+  assign phase_ctr_en = clr_phase_cntr | (beat_end & cntr_en);
   assign phase_ctr_incr =  (PhaseCntDw)'('h1) << lshift;
   assign {phase_ctr_overflow, phase_ctr_next} = phase_ctr_q + phase_ctr_incr;
   assign phase_ctr_d = clr_phase_cntr ? '0 : phase_ctr_next;
