@@ -161,6 +161,10 @@ endtask
 task pwm_base_vseq::shutdown_dut();
   // shutdown dut to make last item finish gracefully
   `uvm_info(`gfn, $sformatf("disabling channel"), UVM_HIGH)
+  // Disable all PWM outputs.
   set_ch_enables(32'h0);
+  // Stop the phase counter.
+  ral.cfg.cntr_en.set(1'b0);
+  csr_update(ral.cfg);
   dut_shutdown();
 endtask
