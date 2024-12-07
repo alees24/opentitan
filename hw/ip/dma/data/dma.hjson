@@ -510,7 +510,7 @@
       tags: ["excl:CsrAllTests:CsrExclWrite"]
     }
     {
-      name: "SRC_CONTROL"
+      name: "SRC_CONFIG"
       desc: "Defines the addressing behavior of the DMA for the source address."
       swaccess: "rw"
       hwaccess: "hro"
@@ -536,7 +536,7 @@
       ]
     }
     {
-      name: "DST_CONTROL"
+      name: "DST_CONFIG"
       desc: "Defines the addressing behavior of the DMA for the destination address."
       swaccess: "rw"
       hwaccess: "hro"
