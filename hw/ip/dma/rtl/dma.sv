@@ -1162,7 +1162,7 @@ module dma
     new_dst_addr = {reg2hw.dst_addr_hi.q, reg2hw.dst_addr_lo.q} +
                     SYS_ADDR_WIDTH'(reg2hw.chunk_data_size.q);
     new_src_addr = {reg2hw.src_addr_hi.q, reg2hw.src_addr_lo.q} +
-                    SYS_ADDR_WIDTH'(chunk_byte_q);
+                    SYS_ADDR_WIDTH'(reg2hw.chunk_data_size.q);
 
     // If we are in multi-chunk mode, we need to update the register addresses since they are needed
     // for the next chunk. Do this only when going back to Idle and when we are incrementing the
