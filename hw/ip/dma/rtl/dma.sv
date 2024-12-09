@@ -746,9 +746,9 @@ module dma
           // Use start address on first byte of transaction
           if ((transfer_byte_q == '0) ||
               // or when being in the fixed address mode
-              reg2hw.src_control.increment.q == AddrNoIncrement ||
+              reg2hw.src_config.increment.q == AddrNoIncrement ||
               // or when transferring the first byte of a chunk and in wrapped increment mode
-              (chunk_byte_q == '0 && reg2hw.src_control.wrap.q == AddrWrapChunk)) begin
+              (chunk_byte_q == '0 && reg2hw.src_config.wrap.q == AddrWrapChunk)) begin
             src_addr_d = {reg2hw.src_addr_hi.q, reg2hw.src_addr_lo.q};
           end else begin
             // Advance from the previous transaction within this chunk
@@ -758,9 +758,9 @@ module dma
           // Use start address on first byte of transaction
           if ((transfer_byte_q == '0) ||
               // or when being in the fixed address mode
-              reg2hw.dst_control.increment.q == AddrNoIncrement ||
+              reg2hw.dst_config.increment.q == AddrNoIncrement ||
               // or when transferring the first byte of a chunk and in wrapped increment mode
-              (chunk_byte_q == '0 && reg2hw.dst_control.wrap.q == AddrWrapChunk)) begin
+              (chunk_byte_q == '0 && reg2hw.dst_config.wrap.q == AddrWrapChunk)) begin
             dst_addr_d = {reg2hw.dst_addr_hi.q, reg2hw.dst_addr_lo.q};
           end else begin
             // Advance from the previous transaction within this chunk
@@ -1170,12 +1170,12 @@ module dma
     update_dst_addr_reg = 1'b0;
     update_src_addr_reg = 1'b0;
     if (data_move_state && (ctrl_state_d == DmaIdle)) begin
-      if (reg2hw.src_control.increment.q == AddrNoIncrement &&
-          reg2hw.src_control.wrap.q == AddrNoWrapChunk) begin
+      if (reg2hw.src_config.increment.q == AddrNoIncrement &&
+          reg2hw.src_config.wrap.q == AddrNoWrapChunk) begin
         update_src_addr_reg = 1'b1;
       end
-      if (reg2hw.dst_control.increment.q == AddrNoIncrement &&
-          reg2hw.dst_control.wrap.q == AddrNoWrapChunk) begin
+      if (reg2hw.dst_config.increment.q == AddrNoIncrement &&
+          reg2hw.dst_config.wrap.q == AddrNoWrapChunk) begin
         update_dst_addr_reg = 1'b1;
       end
     end
