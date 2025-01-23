@@ -15,13 +15,15 @@ filesets:
       - lowrisc:prim:cipher_pkg:0.1
       - lowrisc:prim:secded:0.1
       - lowrisc:ip:otp_ctrl_pkg:1.0
+# TODO: Must exclude from Darjeeling build at present
 #     - lowrisc:ip_interfaces:flash_ctrl_pkg
       - lowrisc:dv:digestpp_dpi
       - lowrisc:ip:kmac_pkg
     files:
       - sram_scrambler_pkg.sv
       - mem_bkdr_util_pkg.sv
-      - flash_bkdr_util.sv: {is_include_file: true}
+# TODO: Must exclude from Darjeeling build at present
+#     - flash_bkdr_util.sv: {is_include_file: true}
       - mem_bkdr_util.sv: {is_include_file: true}
       - rom_bkdr_util.sv: {is_include_file: true}
       - sram_bkdr_util.sv: {is_include_file: true}
