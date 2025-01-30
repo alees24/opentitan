@@ -333,6 +333,7 @@ package top_darjeeling_rnd_cnst_pkg;
   ////////////////////////////////////////////
   // rom_ctrl0
   ////////////////////////////////////////////
+`ifdef JUST_A_HUNCH
   // Fixed nonce used for address / data scrambling
   parameter bit [63:0] RndCnstRomCtrl0ScrNonce = {
     64'hFA5BA5CF_4337A897
@@ -355,6 +356,29 @@ package top_darjeeling_rnd_cnst_pkg;
   parameter bit [127:0] RndCnstRomCtrl1ScrKey = {
     128'h9D2D4204_B2F54BE8_75AE4802_77680CBA
   };
+`else
+  parameter bit [63:0] RndCnstRomCtrl0ScrNonce = {
+    64'h3F40A5E8_16A506C2
+  };
+
+  // Randomised constant used as a scrambling key for ROM data
+  parameter bit [127:0] RndCnstRomCtrl0ScrKey = {
+    128'hAB1F4A2F_01CBE908_A34C2A20_FECDA9A5
+  };
+
+  ////////////////////////////////////////////
+  // rom_ctrl1
+  ////////////////////////////////////////////
+  // Fixed nonce used for address / data scrambling
+  parameter bit [63:0] RndCnstRomCtrl1ScrNonce = {
+    64'h3F40A5E8_16A506C2
+  };
+
+  // Randomised constant used as a scrambling key for ROM data
+  parameter bit [127:0] RndCnstRomCtrl1ScrKey = {
+    128'hAB1F4A2F_01CBE908_A34C2A20_FECDA9A5
+  };
+`endif
 
   ////////////////////////////////////////////
   // rv_core_ibex
