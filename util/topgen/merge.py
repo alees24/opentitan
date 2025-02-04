@@ -1449,8 +1449,9 @@ def amend_racl(top_cfg: OrderedDict,
     if 'racl_config' not in top_cfg:
         return
 
+    assert "cfg_path" in top_cfg
     # Read the top-level RACL information
-    top_cfg['racl'] = parse_racl_config(top_cfg['racl_config'])
+    top_cfg["racl"] = parse_racl_config(top_cfg["cfg_path"] / top_cfg["racl_config"])
 
     # Generate the RACL mappings for all subscribing IPs
     for m in top_cfg['module']:
@@ -1467,8 +1468,8 @@ def amend_racl(top_cfg: OrderedDict,
                 # once and need no further updates.
                 continue
             parsed_register_mapping, parsed_window_mapping, racl_group, _ = (
-                parse_racl_mapping(top_cfg['racl'], mapping_path, if_name,
-                                   block))
+                parse_racl_mapping(top_cfg["racl"], top_cfg["cfg_path"] / mapping_path,
+                                   if_name, block))
             m['racl_mappings'][if_name] = {
                 'racl_group': racl_group,
                 'register_mapping': parsed_register_mapping,
@@ -1479,6 +1480,8 @@ def amend_racl(top_cfg: OrderedDict,
 def merge_top(topcfg: OrderedDict,
               name_to_block: Dict[str, IpBlock],
               xbarobjs: OrderedDict) -> OrderedDict:
+    
+    assert "cfg_path" in topcfg
 
     # Combine ip cfg into topcfg
     elaborate_instances(topcfg, name_to_block)
@@ -1488,6 +1491,8 @@ def merge_top(topcfg: OrderedDict,
     # Note, elaborate_instances references clock information to establish async handling
     # as part of alerts.
     # amend_clocks(topcfg)
+
+    assert "cfg_path" in topcfg
 
     # Combine the wakeups
     amend_wkup(topcfg, name_to_block)
@@ -1517,6 +1522,7 @@ def merge_top(topcfg: OrderedDict,
     amend_resets(topcfg, name_to_block)
 
     # Parse racl configuration and annotate individual modules affected.
+    assert "cfg_path" in topcfg
     amend_racl(topcfg, name_to_block)
 
     # remove unwanted fields 'debug_mem_base_addr'

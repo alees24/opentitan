@@ -1125,6 +1125,7 @@ def _process_top(
     them to further populate the top config. It can raise exceptions for
     errors found in the process.
     """
+    assert "cfg_path" in topcfg
     # Prepare the topcfg.
     extract_clocks(topcfg)
     ip_attrs = create_generic_ip_blocks(topcfg, alias_cfgs, cfg_path, out_path)
@@ -1155,6 +1156,7 @@ def _process_top(
     if error != 0:
         raise SystemExit("Error occured while validating top.hjson")
 
+    
     completecfg = merge_top(topcfg, name_to_block, xbar_objs)
     name_to_hjson: Dict[str,
                         Path] = {k: v.hjson_path
@@ -1168,6 +1170,7 @@ def _process_top(
         params = _get_alert_handler_params(topcfg)
         name_to_block[name] = create_ipgen_ip_block(topcfg["name"], name,
                                                     params, alias_cfgs)
+    # Delete 
     return completecfg, name_to_block, name_to_hjson
 
 
@@ -1530,8 +1533,13 @@ def main():
         log.info("Generation pass {}".format(pass_idx + 1))
         # Use the same seed for each pass to have stable random constants.
         secure_prng.reseed(topcfg["rnd_cnst_seed"])
+        # Insert the config file path of the HJSON to allow parsing files relative
+        # the config directory
+        cfg_copy["cfg_path"] = Path(args.topcfg).parent
         completecfg, name_to_block, name_to_hjson = _process_top(
             cfg_copy, args, cfg_path, out_path_gen, alias_cfgs)
+        # Delete config path before dumping, not needed
+        del completecfg["cfg_path"]
         dump_path = Path(f"/tmp/top{topname}cfg_{pass_idx}.hjson")
         _dump_cfg(dump_path, completecfg)
         if pass_idx > 0 and filecmp.cmp(
