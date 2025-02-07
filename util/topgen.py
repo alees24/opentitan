@@ -1242,10 +1242,8 @@ def generate_full_ipgens(args: argparse.Namespace, topcfg: Dict[str, object],
     generate_modules("rstmgr", generate_rstmgr, single_instance=True)
 
     # Generate ac_range_check
-    if "ac_range_check" in topcfg:
-        generate_modules("ac_range_check",
-                         generate_ac_range_check,
-                         single_instance=True)
+    generate_modules("ac_range_check", generate_ac_range_check,
+                     single_instance=True)
 
     # Generate RACL collateral
     if "racl_config" in topcfg:
