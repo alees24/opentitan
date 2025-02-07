@@ -750,7 +750,7 @@ def generate_racl(topcfg: Dict[str, object], module: Dict[str, object],
     log.info("Generating RACL Control IP with ipgen")
     params = _get_racl_params(topcfg)
     generate_ipgen(topcfg, module, params, out_path)
-
+    print("Generated")
 
 # def generate_top_only(top_only_dict: Dict[str, bool], out_path: Path,
 def generate_top_only(top_only_dict: List[str], out_path: Path, top_name: str,
@@ -1067,8 +1067,11 @@ def create_ipgen_blocks(
         raise SystemExit("There are ipgen modules with multiple instances: "
                          f"{multi_instance_ipgens}")
 
+    print("raclconfig")
     if "racl_config" in topcfg:
-        amend_racl(topcfg, name_to_block, allow_missing_blocks=True)
+        print(Path.cwd())
+        print(cfg_path)
+        amend_racl(cfg_path, topcfg, name_to_block, allow_missing_blocks=True)
         assert "racl_ctrl" in ipgen_instances
         insert_ip_attrs(ipgen_instances["racl_ctrl"][0]["type"],
                         _get_racl_params(topcfg))
@@ -1155,7 +1158,7 @@ def _process_top(
     if error != 0:
         raise SystemExit("Error occured while validating top.hjson")
 
-    completecfg = merge_top(topcfg, name_to_block, xbar_objs)
+    completecfg = merge_top(cfg_path, topcfg, name_to_block, xbar_objs)
     name_to_hjson: Dict[str,
                         Path] = {k: v.hjson_path
                                  for k, v in ip_attrs.items()}
@@ -1434,7 +1437,9 @@ def main():
     out_path = Path(outdir)
     cfg_path = Path(args.topcfg).parents[1]
 
+    print("Loading")
     topcfg = load_cfg(args.topcfg)
+    print("Loaded")
 
     # Add domain information to each module's reset_connections
     amend_reset_connections(topcfg)
@@ -1536,6 +1541,9 @@ def main():
             cfg_copy, args, cfg_path, out_path_gen, alias_cfgs)
         dump_path = Path(f"/tmp/top{topname}cfg_{pass_idx}.hjson")
         _dump_cfg(dump_path, completecfg)
+        print("Comparing")
+        print(f"/tmp/top{topname}cfg_{pass_idx}.hjson")
+        print("/tmp/top{}cfg_{}.hjson".format(topname, pass_idx))
         if pass_idx > 0 and filecmp.cmp(
                 f"/tmp/top{topname}cfg_{pass_idx}.hjson",
                 "/tmp/top{}cfg_{}.hjson".format(topname, pass_idx),
@@ -1548,6 +1556,7 @@ def main():
         log.error("Too many process_top passes without convergence")
         raise SystemExit(sys.exc_info()[1])
 
+    print("configured")
     complete_topcfg(completecfg, name_to_block)
     create_alert_lpgs(completecfg, name_to_block)
 

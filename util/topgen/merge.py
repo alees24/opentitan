@@ -1438,7 +1438,7 @@ def amend_pinmux_io(top: Dict, name_to_block: Dict[str, IpBlock],
                 assert (0)  # Entry should be guaranteed to exist at this point
 
 
-def amend_racl(top_cfg: OrderedDict,
+def amend_racl(cfg_path: str, top_cfg: OrderedDict,
                name_to_block: Dict[str, IpBlock],
                allow_missing_blocks=False):
     """Amend top_cfg based on racl configuration.
@@ -1449,7 +1449,7 @@ def amend_racl(top_cfg: OrderedDict,
         return
 
     # Read the top-level RACL information
-    top_cfg['racl'] = parse_racl_config(top_cfg['racl_config'])
+    top_cfg['racl'] = parse_racl_config(cfg_path / top_cfg['racl_config'])
 
     # Generate the RACL mappings for all subscribing IPs
     for m in top_cfg['module']:
@@ -1466,7 +1466,7 @@ def amend_racl(top_cfg: OrderedDict,
                 # once and need no further updates.
                 continue
             parsed_register_mapping, parsed_window_mapping, racl_group, _ = (
-                parse_racl_mapping(top_cfg['racl'], mapping_path, if_name,
+                parse_racl_mapping(cfg_path, top_cfg['racl'], mapping_path, if_name,
                                    block))
             m['racl_mappings'][if_name] = {
                 'racl_group': racl_group,
@@ -1475,7 +1475,7 @@ def amend_racl(top_cfg: OrderedDict,
             }
 
 
-def merge_top(topcfg: OrderedDict,
+def merge_top(cfg_path: str, topcfg: OrderedDict,
               name_to_block: Dict[str, IpBlock],
               xbarobjs: OrderedDict) -> OrderedDict:
 
@@ -1516,7 +1516,7 @@ def merge_top(topcfg: OrderedDict,
     amend_resets(topcfg, name_to_block)
 
     # Parse racl configuration and annotate individual modules affected.
-    amend_racl(topcfg, name_to_block)
+    amend_racl(cfg_path, topcfg, name_to_block)
 
     # remove unwanted fields 'debug_mem_base_addr'
     topcfg.pop('debug_mem_base_addr', None)

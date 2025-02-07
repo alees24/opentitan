@@ -118,11 +118,12 @@ def parse_racl_config(config_path: str) -> Dict[str, object]:
 
 
 def parse_racl_mapping(
+        cfg_path: str,
         racl_config: Dict[str,
                           object], mapping_path: str, if_name: Optional[str],
         ip_block: IpBlock) -> Tuple[Dict[str, int], Dict[str, int], str, List[str]]:
 
-    mapping = _read_hjson(mapping_path)
+    mapping = _read_hjson(cfg_path / mapping_path)
     parsed_register_mapping = OrderedDict()
     parsed_window_mapping = OrderedDict()
 
