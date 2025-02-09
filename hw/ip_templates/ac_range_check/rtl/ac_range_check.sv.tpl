@@ -188,8 +188,7 @@ module ${module_instance_name}
   logic range_check_fail;
   assign range_check_fail =
     ctn_tl_h2d_i.a_valid & ~(|{read_allowed, write_allowed, execute_allowed,
-                               prim_mubi_pkg::mubi8_test_true_strict(
-                                 prim_mubi_pkg::mubi8_t'(range_check_overwrite_i))});
+                               prim_mubi_pkg::mubi8_test_true_strict(range_check_overwrite_i)});
 
   //////////////////////////////////////////////////////////////////////////////
   // TLUL Loopback for failing accesses
@@ -346,5 +345,8 @@ module ${module_instance_name}
   // Alert assertions for reg_we onehot check
   `ASSERT_PRIM_REG_WE_ONEHOT_ERROR_TRIGGER_ALERT(RegWeOnehotCheck_A, u_ac_range_check_reg,
                                                  alert_tx_o[0])
+  // Deny Counter error
+  `ASSERT_PRIM_COUNT_ERROR_TRIGGER_ALERT(DenyCountCheck_A, u_deny_count,
+                                         alert_tx_o[1])
 
 endmodule
