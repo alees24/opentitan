@@ -240,6 +240,7 @@ module top_earlgrey #(
   import top_earlgrey_pkg::*;
   // Compile-time random constants
   import top_earlgrey_rnd_cnst_pkg::*;
+  import top_earlgrey_racl_pkg::*;
 
   // Local Parameters
   // local parameters for lc_ctrl
