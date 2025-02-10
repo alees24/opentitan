@@ -265,6 +265,7 @@ class Scrambler:
         key = Scrambler._get_param_value(params,
                                          mc_params.scr_key,
                                          mc_params.scr_key_width)
+        print("Scrambling with key {} nonce {}".format(hex(key), hex(nonce)))
         return Scrambler(nonce, key, base, size_words, hash_file)
 
     def flatten(self, mem: MemFile) -> MemFile:
