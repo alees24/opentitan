@@ -660,12 +660,16 @@ This can be `kDtPlicIrqIdNone` if the block is not connected to the PLIC."""
         # Base address map.
         base_addr_map = OrderedDict()
         for (rb, addr) in m["base_addrs"].items():
-            if self._addr_space not in addr:
-                continue
+            # TODO: bodge for ac_range_check being inaccessible and generating invalid C
+            #if self._addr_space not in addr:
+            #    continue
             if rb == "null":
                 rb = self.UNNAMED_REG_BLOCK_NAME
             rb = Name.from_snake_case(rb)
-            base_addr_map[rb] = addr[self._addr_space]
+            if self._addr_space not in addr:
+              base_addr_map[rb] = 0
+            else:
+              base_addr_map[rb] = addr[self._addr_space]
         inst_desc[self.BASE_ADDR_FIELD_NAME] = base_addr_map
         # Clock map.
         if self.has_clocks():

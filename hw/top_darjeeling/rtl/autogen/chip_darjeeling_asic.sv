@@ -1242,6 +1242,10 @@ module chip_darjeeling_asic #(
     cfg: ast_rom_cfg.marg
   };
 
+  // TODO: connect
+  prim_otp_cfg_pkg::otp_cfg_t     otp_cfg;
+  prim_otp_cfg_pkg::otp_cfg_rsp_t otp_cfg_rsp;
+  assign otp_cfg = '0;
 
   //////////////////////////////////
   // AST - Custom for targets     //
@@ -1450,12 +1454,23 @@ module chip_darjeeling_asic #(
     .tl_d2h_i   (dmi_d2h)
   );
 
+  // TODO: Resolve this and wire it up.
+  tlul_pkg::tl_h2d_t ctn_misc_tl_h2d_i;
+  assign ctn_misc_tl_h2d_i = tlul_pkg::TL_H2D_DEFAULT;
+  tlul_pkg::tl_d2h_t ctn_misc_tl_d2h_o;
+
+  // TODO: Over/ride/ all access range checks for now.
+  prim_mubi_pkg::mubi8_t ac_range_check_overwrite_i;
+  assign ac_range_check_overwrite_i = prim_mubi_pkg::MuBi8True;
+
   ////////////////
   // CTN M-to-1 //
   ////////////////
 
   tlul_pkg::tl_h2d_t ctn_tl_h2d[2];
   tlul_pkg::tl_d2h_t ctn_tl_d2h[2];
+  //TODO: Resolve this and wire it up.
+  assign ctn_tl_h2d[1] = tlul_pkg::TL_H2D_DEFAULT; 
 
   tlul_pkg::tl_h2d_t ctn_sm1_to_s1n_tl_h2d;
   tlul_pkg::tl_d2h_t ctn_sm1_to_s1n_tl_d2h;
@@ -1505,7 +1520,10 @@ module chip_darjeeling_asic #(
     ctn_dev_sel_s1n = 1'b1;
     // Steering to CTN SRAM.
     if ((ctn_sm1_to_s1n_tl_h2d.a_address & ~(TOP_DARJEELING_RAM_CTN_SIZE_BYTES-1)) ==
-        TOP_DARJEELING_RAM_CTN_BASE_ADDR) begin
+// TODO: Presently the software is being built to execute at the start of the window, so map
+// the RAM there; it's supposed to be at an offset of 256MiB.
+        0) begin
+//        (TOP_DARJEELING_RAM_CTN_BASE_ADDR - TOP_DARJEELING_CTN_BASE_ADDR)) begin
       ctn_dev_sel_s1n = 1'd0;
     end
   end
@@ -1674,19 +1692,22 @@ module chip_darjeeling_asic #(
     .otp_ctrl_otp_ast_pwr_seq_o        ( otp_ctrl_otp_ast_pwr_seq   ),
     .otp_ctrl_otp_ast_pwr_seq_h_i      ( otp_ctrl_otp_ast_pwr_seq_h ),
     .otp_obs_o                         ( otp_obs                    ),
+    .otp_cfg_i                         ( otp_cfg                    ),
+    .otp_cfg_rsp_o                     ( otp_cfg_rsp                ),
     .ctn_tl_h2d_o                      ( ctn_tl_h2d[0]              ),
     .ctn_tl_d2h_i                      ( ctn_tl_d2h[0]              ),
+    .ac_range_check_overwrite_i        ( ac_range_check_overwrite_i ),
     .soc_gpi_async_o                   (                            ),
     .soc_gpo_async_i                   ( '0                         ),
     .soc_dbg_policy_bus_o              ( soc_dbg_policy_bus         ),
     .debug_halt_cpu_boot_i             ( '0                         ),
     .dma_sys_req_o                     (                            ),
     .dma_sys_rsp_i                     ( '0                         ),
-    .dma_ctn_tl_h2d_o                  ( ctn_tl_h2d[1]              ),
-    .dma_ctn_tl_d2h_i                  ( ctn_tl_d2h[1]              ),
     .mbx_tl_req_i                      ( tlul_pkg::TL_H2D_DEFAULT   ),
     .mbx_tl_rsp_o                      (                            ),
     .pwrmgr_boot_status_o              ( pwrmgr_boot_status         ),
+    .ctn_misc_tl_h2d_i                 ( ctn_misc_tl_h2d_i          ),
+    .ctn_misc_tl_d2h_o                 ( ctn_misc_tl_d2h_o          ), 
     .soc_fatal_alert_req_i             ( soc_fatal_alert_req        ),
     .soc_fatal_alert_rsp_o             (                            ),
     .soc_recov_alert_req_i             ( soc_recov_alert_req        ),

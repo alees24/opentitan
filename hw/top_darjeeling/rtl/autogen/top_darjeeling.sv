@@ -2124,10 +2124,8 @@ module top_darjeeling #(
   rom_ctrl #(
     .AlertAsyncOn(alert_handler_reg_pkg::AsyncOn[70:70]),
     .BootRomInitFile(RomCtrl0BootRomInitFile),
-    // TODO: Replace this with the proper parameter; temporary for Darjeeling bring up!
-    .RndCnstScrNonce('h3f40a5e816a506c2),
-    // TODO: Replace this with the proper parameter; temporary for Darjeeling bring up!
-    .RndCnstScrKey('hab1f4a2f01cbe908a34c2a20fecda9a5),
+    .RndCnstScrNonce(RndCnstRomCtrl0ScrNonce),
+    .RndCnstScrKey(RndCnstRomCtrl0ScrKey),
     .SecDisableScrambling(SecRomCtrl0DisableScrambling),
     .MemSizeRom(32768)
   ) u_rom_ctrl0 (
@@ -2153,10 +2151,8 @@ module top_darjeeling #(
   rom_ctrl #(
     .AlertAsyncOn(alert_handler_reg_pkg::AsyncOn[71:71]),
     .BootRomInitFile(RomCtrl1BootRomInitFile),
-    // TODO: Replace this with the proper parameter; temporary for Darjeeling bring up!
-    .RndCnstScrNonce('h3f40a5e816a506c2),
-    // TODO: Replace this with the proper parameter; temporary for Darjeeling bring up!
-    .RndCnstScrKey('hab1f4a2f01cbe908a34c2a20fecda9a5),
+    .RndCnstScrNonce(RndCnstRomCtrl1ScrNonce),
+    .RndCnstScrKey(RndCnstRomCtrl1ScrKey),
     .SecDisableScrambling(SecRomCtrl1DisableScrambling),
     .MemSizeRom(65536)
   ) u_rom_ctrl1 (
