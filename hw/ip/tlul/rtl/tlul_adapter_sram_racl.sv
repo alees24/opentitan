@@ -77,8 +77,7 @@ module tlul_adapter_sram_racl
   input  logic                 write_pending_i,
   // RACL interface
   input  top_racl_pkg::racl_policy_vec_t racl_policies_i,
-  output logic                           racl_error_o,
-  output top_racl_pkg::racl_error_log_t  racl_error_log_o
+  output top_racl_pkg::racl_error_log_t  racl_error_o
 );
   tl_h2d_t tl_h2d_filtered;
   tl_d2h_t tl_d2h_filtered;
@@ -104,7 +103,7 @@ module tlul_adapter_sram_racl
                                        tl_i.a_opcode == tlul_pkg::PutPartialData);
     assign racl_read_allowed  = (|(racl_policies_i[RaclPolicySelVec].read_perm  & racl_role_vec));
     assign racl_write_allowed = (|(racl_policies_i[RaclPolicySelVec].write_perm & racl_role_vec));
-    assign racl_error_o       = (rd_req & ~racl_read_allowed) | (wr_req & ~racl_write_allowed);
+    assign racl_error_o.valid = (rd_req & ~racl_read_allowed) | (wr_req & ~racl_write_allowed);
 
     tlul_request_loopback #(
       .ErrorRsp(RaclErrorRsp)
@@ -119,15 +118,14 @@ module tlul_adapter_sram_racl
     );
 
     // Collect RACL error information
-    assign racl_error_log_o.read_access = tl_i.a_opcode == tlul_pkg::Get;
-    assign racl_error_log_o.racl_role   = racl_role;
-    assign racl_error_log_o.ctn_uid     = top_racl_pkg::tlul_extract_ctn_uid_bits(tl_i.a_user.rsvd);
+    assign racl_error_o.read_access = tl_i.a_opcode == tlul_pkg::Get;
+    assign racl_error_o.racl_role   = racl_role;
+    assign racl_error_o.ctn_uid     = top_racl_pkg::tlul_extract_ctn_uid_bits(tl_i.a_user.rsvd);
   end else begin : gen_no_racl_role_logic
     // Pass through and default assignments
     assign tl_h2d_filtered  = tl_i;
     assign tl_o             = tl_d2h_filtered;
-    assign racl_error_o     = 1'b0;
-    assign racl_error_log_o = '0;
+    assign racl_error_o     = '0;
   end
 
   tlul_adapter_sram #(
@@ -175,7 +173,6 @@ module tlul_adapter_sram_racl
   assign unused_policy_sel = ^racl_policies_i;
 
   // Ensure that RACL signals are not undefined
-  `ASSERT_KNOWN(RaclAdapterSramErrorKnown_A, racl_error_o)
-  `ASSERT_KNOWN(RaclAdapterSramErrorLogKnown_A, racl_error_log_o)
+  `ASSERT_KNOWN(RaclAdapterSramErrorKnown_A, racl_error_o.valid)
 
 endmodule
