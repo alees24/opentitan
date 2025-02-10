@@ -134,10 +134,18 @@ class chip_sw_base_vseq extends chip_base_vseq;
     end
 
     if (cfg.sw_images.exists(SwTypeTestSlotA)) begin
+// TODO: Darjeeling bring up; presently the easier Bazel target!
+
+      // Backdoor load plain 32bit image and recompute ECC so that we don't get integrity errors.
+      cfg.mem_bkdr_util_h[RamCtn0].load_mem_from_file(
+          .file({cfg.sw_images[SwTypeTestSlotA], ".32.vmem"}), .recompute_ecc(1));
+/*
+
       if (cfg.use_spi_load_bootstrap) begin
         // TODO(opentitan-integrated/issues/332): re-implement bootstrap to use the CTN SRAM.
         `uvm_fatal(`gfn, "Bootstrap is currently not supported yet by this platform.")
       end
+*/
     end
     if (cfg.sw_images.exists(SwTypeCtn)) begin
       // Backdoor load plain 32bit image and recompute ECC so that we don't get integrity errors.
