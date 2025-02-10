@@ -439,6 +439,8 @@ class chip_env_cfg #(type RAL_T = chip_ral_pkg::chip_reg_block) extends cip_base
             sw_images[i] = $sformatf("%0s_%0s", sw_images[i], sw_build_device);
           // If Test type (e.g., opentitan_functest) and flash image was by a
           // `opentitan_flash_binary` macro, then no need to tweak the name.
+          end else if (("new_rules" inside {sw_image_flags[i]})) begin
+            sw_images[i] = $sformatf("%0s_%0s", sw_images[i], sw_build_device);
           end else begin
             sw_images[i] = $sformatf("%0s_prog_%0s", sw_images[i], sw_build_device);
           end

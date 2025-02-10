@@ -134,6 +134,7 @@ class chip_sw_base_vseq extends chip_base_vseq;
     end
 
     if (cfg.sw_images.exists(SwTypeTestSlotA)) begin
+      // Backdoor load plain 32bit image and recompute ECC so that we don't get integrity errors.
       if (cfg.use_spi_load_bootstrap) begin
         // TODO(opentitan-integrated/issues/332): re-implement bootstrap to use the CTN SRAM.
         `uvm_fatal(`gfn, "Bootstrap is currently not supported yet by this platform.")
