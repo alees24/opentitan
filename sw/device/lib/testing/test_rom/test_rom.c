@@ -239,9 +239,19 @@ bool rom_test_main(void) {
   const manifest_t *manifest = (const manifest_t *)dt_flash_ctrl_reg_block(
       kFlashCtrlDt, kDtFlashCtrlRegBlockMem);
 #elif defined(OPENTITAN_IS_DARJEELING)
+  // TODO: We cannot touch the soc_proxy/ac_range_check at present,
+  // so for now let's use the SRAM.
+#if 1
   // Always select slot a and enable address translation if manifest says to.
   const manifest_t *manifest = (const manifest_t *)dt_soc_proxy_reg_block(
       kDtSocProxy, kDtSocProxyRegBlockCtn);
+
+// TODO: Need to bump up to SRAM itself.
+  const uint32_t ctn_sram_offset = 0u;
+manifest = (manifest_t*)((uintptr_t)manifest + ctn_sram_offset);
+#else
+  const manifest_t *manifest = (const manifest_t *)0x10000000;
+#endif
 #else
 #error I don't know how to find the test code on this platform!
 #endif
