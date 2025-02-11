@@ -146,6 +146,7 @@ module racl_ctrl import racl_ctrl_reg_pkg::*; #(
   // If there are multiple errors in the same cycle, arbitrate and get the first error.
   // Lower index in combined_racl_error_valid has higher priority
   logic [$bits(racl_error_log_t)-1:0] racl_error_arb_logic;
+  logic [NumAllIps-1:0] arbiter_gnt;
   prim_arbiter_fixed #(
     .N          ( NumAllIps               ),
     .DW         ( $bits(racl_error_log_t) ),
@@ -155,7 +156,7 @@ module racl_ctrl import racl_ctrl_reg_pkg::*; #(
     .rst_ni,
     .req_i    ( combined_racl_error_valid ),
     .data_i   ( combined_racl_error       ),
-    .gnt_o    (                           ),
+    .gnt_o    ( arbiter_gnt               ),
     .idx_o    (                           ),
     .valid_o  (                           ),
     .data_o   ( racl_error_arb_logic      ),
@@ -168,20 +169,7 @@ module racl_ctrl import racl_ctrl_reg_pkg::*; #(
   // overflow bit in the log. We use a one-hot checker to determine if there is more
   // than one error. The checker asserts an error in these cases.
   logic multiple_errors;
-  prim_onehot_check #(
-    .OneHotWidth           ( NumAllIps ),
-    .AddrCheck             ( 0         ),
-    .EnableCheck           ( 1         ),
-    .StrictCheck           ( 0         ),
-    .EnableAlertTriggerSVA ( 0         )
-  ) u_multiple_err_det (
-    .clk_i,
-    .rst_ni,
-    .oh_i   ( combined_racl_error_valid ),
-    .addr_i ( '0                        ),
-    .en_i   ( 1'b1                      ),
-    .err_o  ( multiple_errors           )
-  );
+  assign multiple_errors = |(combined_racl_error_valid & ~arbiter_gnt);
 
   // On the first error, we log the address and other information
   logic first_error;

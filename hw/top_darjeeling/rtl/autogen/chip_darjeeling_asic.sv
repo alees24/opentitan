@@ -1463,6 +1463,10 @@ module chip_darjeeling_asic #(
   prim_mubi_pkg::mubi8_t ac_range_check_overwrite_i;
   assign ac_range_check_overwrite_i = prim_mubi_pkg::MuBi8True;
 
+  // TODO: External RACL error input.
+  top_racl_pkg::racl_error_log_t ext_racl_error;
+  assign ext_racl_error = '0;
+
   ////////////////
   // CTN M-to-1 //
   ////////////////
@@ -1697,6 +1701,7 @@ module chip_darjeeling_asic #(
     .ctn_tl_h2d_o                      ( ctn_tl_h2d[0]              ),
     .ctn_tl_d2h_i                      ( ctn_tl_d2h[0]              ),
     .ac_range_check_overwrite_i        ( ac_range_check_overwrite_i ),
+    .racl_error_i                      ( ext_racl_error             ),
     .soc_gpi_async_o                   (                            ),
     .soc_gpo_async_i                   ( '0                         ),
     .soc_dbg_policy_bus_o              ( soc_dbg_policy_bus         ),
