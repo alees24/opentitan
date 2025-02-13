@@ -145,7 +145,7 @@ module sram_ctrl
     .hw2reg,
     // RACL interface
     .racl_policies_i  ( racl_policies_i    ),
-    .racl_error_o     ( racl_error_o       ),
+    .racl_error_o     ( racl_error_regs    ),
     // SEC_CM: BUS.INTEGRITY
     .intg_err_o       ( bus_integ_error[0] )
    );
@@ -545,8 +545,7 @@ module sram_ctrl
     .write_pending_i            (sram_wpending),
     // RACL interface
     .racl_policies_i            (racl_policies_i),
-    .racl_error_o               (racl_error_ram),
-    .racl_error_log_o           (racl_error_ram_log)
+    .racl_error_o               (racl_error_ram)
   );
 
   logic key_valid;

@@ -123,8 +123,6 @@ module tlul_adapter_sram_racl
     assign wr_req             = req & (tl_i.a_opcode == tlul_pkg::PutFullData |
                                        tl_i.a_opcode == tlul_pkg::PutPartialData);
     assign racl_error_o       = (rd_req & ~racl_read_allowed) | (wr_req & ~racl_write_allowed);
-    assign racl_read_allowed  = (|(racl_policies_i[RaclPolicySelVec].read_perm  & racl_role_vec));
-    assign racl_write_allowed = (|(racl_policies_i[RaclPolicySelVec].write_perm & racl_role_vec));
     assign racl_error_o.valid = (rd_req & ~racl_read_allowed) | (wr_req & ~racl_write_allowed);
 
     tlul_request_loopback #(
