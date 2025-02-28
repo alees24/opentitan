@@ -160,6 +160,12 @@
     // Ensure that the RISC-V JTAG agent uses DMI rather than direct TL-UL;
     // this is required by the JTAG mailbox interface.
     "+define+USE_DMI_INTERFACE"
+
+    // !!!!!!!!
+    // NOTE: This is copied from 'fast_sim_dev' as a convenience for faster simulation without
+    // having to remember the build mode switch. DO NOT MERGE.
+    // !!!!!!!!
+    "+define+DISABLE_ROM_INTEGRITY_CHECK"
   ]
 
   // Add build modes.

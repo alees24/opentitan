@@ -160,7 +160,15 @@
   sw_build_device: sim_dv
 
   // Add a default build option to indicate it is a top-level DV testbench.
-  build_opts: ["+define+TOP_LEVEL_DV"]
+  build_opts: [
+    "+define+TOP_LEVEL_DV",
+
+    // !!!!!!!!
+    // NOTE: This is copied from 'fast_sim_dev' as a convenience for faster simulation without
+    // having to remember the build mode switch. DO NOT MERGE.
+    // !!!!!!!!
+    "+define+DISABLE_ROM_INTEGRITY_CHECK"
+  ]
 
   // Add build modes.
   build_modes: [
