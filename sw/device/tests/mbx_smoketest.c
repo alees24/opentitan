@@ -54,7 +54,7 @@ typedef struct mbx_test_handler_state {
   dif_rv_plic_irq_id_t plic_irq_serviced;
 } mbx_test_handler_state_t;
 static volatile mbx_test_handler_state_t gHandlerState[kDtMbxCount];
-static volatile bool is_finished;
+static volatile bool is_finished = false;
 
 // CONSTANTS
 static const dif_mbx_irq_t mbx_irq_ids[] = {
@@ -266,6 +266,8 @@ static status_t external_isr(void) {
       CHECK_DIF_OK(dif_rv_plic_irq_set_enabled(
           &rv_plic, mbxths->plic_irq_serviced, kHart, kDifToggleDisabled));
 
+      // Declare the maximum number of DWORDs that we are prepared to accept.
+      mbxths->txn->nr_dwords = kMbxSizeDWORDS;
       // Read message from imbx memory region
       CHECK_DIF_OK(dif_mbx_process_request(mbxths->mbx, mbxths->txn));
       mbxths->txn_state = kStateReceivedRequest;
@@ -305,7 +307,7 @@ static status_t external_isr(void) {
   CHECK_DIF_OK(
       dif_rv_plic_irq_complete(&rv_plic, kHart, mbxths->plic_irq_serviced));
 
-  // Set the boolean which allows wfi_flag() to retun.
+  // Set the boolean which allows ATOMIC_WAIT_FOR_INTERRUPT() to retun.
   is_finished = true;
 
   return OK_STATUS();
@@ -318,27 +320,6 @@ void ottf_external_isr(void) {
   if (status_ok(isr_result)) {
     isr_result = tmp;
   }
-}
-
-/**
- * This looks a bit odd, but is needed to avoid a race condition where the
- * interrupt comes in after we load the flag but before we run the WFI
- * instruction.
- * The trick is that WFI returns when an interrupt comes in, even if
- * interrupts are globally disabled, which means that the WFI can actually
- * sit __inside__ the critical section.
- */
-void wfi_flag(volatile bool *is_finished) {
-  while (true) {
-    irq_global_ctrl(false);
-    if (*is_finished) {
-      *is_finished = false;
-      break;
-    }
-    wait_for_interrupt();
-    irq_global_ctrl(true);
-  }
-  irq_global_ctrl(true);
 }
 
 //////////
@@ -442,6 +423,11 @@ bool test_main(void) {
       // check.
       CHECK(false, "Something went wrong. Aborting test.");
     }
+
+    // Clear the interrupt indicator in preparation for the next request;
+    // we must do this before sending the response because the sender expects
+    // the response before sending another request.
+    is_finished = false;
 
     // Complete the txn
     LOG_INFO("Test sw responding to pending request in mbx[%0d]", mbx_id);
