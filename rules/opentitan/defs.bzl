@@ -279,7 +279,9 @@ def opentitan_binary(name, exec_env, **kwargs):
 def opentitan_test(
         name,
         srcs = [],
-        kind = "flash",
+# TODO: Darjeeling bring up
+        kind = "ram",
+#        kind = "flash",
         deps = [],
         copts = [],
         defines = [],
