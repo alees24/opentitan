@@ -123,6 +123,11 @@ class rv_dm_base_vseq extends cip_base_vseq #(
 
     cfg.rv_dm_vif.lc_dft_en <= bool_to_lc_tx_t(lc_dft_en);
 
+    cfg.rv_dm_vif.lc_check_byp_en <= lc_ctrl_pkg::Off;
+    cfg.rv_dm_vif.lc_escalate_en <= lc_ctrl_pkg::Off;
+    cfg.rv_dm_vif.strap_en <= 1'b0;
+    cfg.rv_dm_vif.strap_en_override <= 1'b0;
+
     // Drive the otp_dis_rv_dm_late_debug_i pin to match pin_late_debug_enable (to avoid assertions
     // that get triggered in prim_lc_sync/prim_mubi8_sync if the input is 'x). We will configure the
     // register a little later, in dut_init.

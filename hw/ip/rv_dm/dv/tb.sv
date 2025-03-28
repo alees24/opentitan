@@ -68,9 +68,15 @@ module tb;
     // value as given as a default for next_dm_addr in rv_dm.hjson.
     .next_dm_addr_i            ('0),
 
+    // the strapping behavior of lc_hw_debug_en_i will be tested at the top-level.
     .lc_hw_debug_en_i          (rv_dm_if.lc_hw_debug_en           ),
     .pinmux_hw_debug_en_i      (rv_dm_if.pinmux_hw_debug_en       ),
     .lc_dft_en_i               (rv_dm_if.lc_dft_en                ),
+    .lc_check_byp_en_i         (rv_dm_if.lc_check_byp_en          ),
+    .lc_escalate_en_i          (rv_dm_if.lc_escalate_en           ),
+    .strap_en_i                (rv_dm_if.strap_en                 ),
+    .strap_en_override_i       (rv_dm_if.strap_en_override        ),
+
     .otp_dis_rv_dm_late_debug_i(rv_dm_if.otp_dis_rv_dm_late_debug ),
 
     .scanmode_i                (rv_dm_if.scanmode      ),
