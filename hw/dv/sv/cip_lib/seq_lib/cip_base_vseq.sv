@@ -2,11 +2,13 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
+// Execute `body` in a separate thread for each Host-mode agent.
 `define loop_ral_models_to_create_threads(body) \
   fork \
     begin : isolation_fork \
       foreach (cfg.ral_models[i]) begin \
         automatic string ral_name = i; \
+        if (cfg.m_tl_agent_cfgs[ral_name].if_mode != dv_utils_pkg::Host) continue; \
         fork \
           begin \
             body \

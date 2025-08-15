@@ -388,6 +388,7 @@ virtual task run_tl_intg_err_vseq(int num_times = 1);
     `uvm_info(`gfn, $sformatf("Running run_tl_intg_err_vseq %0d/%0d", trans, num_times),
               UVM_LOW)
     foreach (cfg.ral_models[ral_name]) begin
+      if (cfg.m_tl_agent_cfgs[ral_name].if_mode != dv_utils_pkg::Host) continue;
       run_tl_intg_err_vseq_sub(ral_name);
       dut_init("HARD");
     end
