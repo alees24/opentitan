@@ -1,0 +1,398 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+{
+  name:               "i3c",
+  human_name:         "I3C",
+  one_line_desc:      "I3C Controller/Target",
+  one_paragraph_desc: '''I3C block'''
+  // Unique comportable IP identifier defined under KNOWN_CIP_IDS in the regtool.
+  // TODO:
+  cip_id:             "45",
+  design_spec:        "../doc",
+  dv_doc:             "../doc/dv",
+  hw_checklist:       "../doc/checklist",
+  sw_checklist:       "/sw/device/lib/dif/dif_i3c",
+  revisions: [
+  {
+    version:            "1.0.0",
+    life_stage:         "L2",
+    design_stage:       "D3",
+    verification_stage: "V3",
+    commit_id:          "",
+    notes:              ""
+  }
+  ]
+  clocking: [{clock: "clk_i", reset: "rst_ni"}],
+  bus_interfaces: [
+    { protocol: "tlul", direction: "device", racl_support: true }
+  ],
+  available_input_list: [
+    { name: "cio_scl_i", desc: "I3C clock input" }
+    { name: "cio_sda_i", desc: "I3C data input" }
+  ],
+  available_output_list: [
+    { name: "cip_scl_o", desc: "I3C clock output" }
+    { name: "cip_scl_en_o", desc: "I3C clock enable output" }
+    { name: "cip_scl_od_en_o", desc: "I3C clock Open Drain enable output" }
+    { name: "cip_sda_o", desc: "I3C data output" }
+    { name: "cip_sda_en_o", desc: "I3C data enable output" }
+    { name: "cip_sda_od_en_o", desc: "I3C data Open Drain enable output" }
+  ],
+  interrupt_list: [
+    { name:    "done",
+      type:    "event",
+      default: "0",
+      desc:    ""
+    }
+    { name:    "error",
+      type:    "event",
+      default: "0",
+      desc:    ""
+    }
+  ],
+  alert_list: [
+    { name: "fatal_fault",
+      desc: '''
+      This fatal alert is triggered when a fatal TL-UL bus integrity fault is detected.
+      '''
+    }
+  ],
+  inter_signal_list: [
+    { struct: "logic"
+      type:   "uni"
+      name:   "lsio_trigger"
+      desc: '''
+            Self-clearing status trigger for the DMA.
+            Set when RX or TX buffers are past their configured watermarks matching watermark interrupt behaviour.
+      '''
+      act:    "req"
+    }
+    { struct:  "racl_policy_vec",
+      type:    "uni",
+      name:    "racl_policies",
+      act:     "rcv",
+      package: "top_racl_pkg",
+      desc:    '''
+        Incoming RACL policy vector from a racl_ctrl instance.
+        The policy selection vector (parameter) selects the policy for each register.
+      '''
+    }
+    { struct:  "racl_error_log",
+      type:    "uni",
+      name:    "racl_error",
+      act:     "req",
+      width:   "1"
+      package: "top_racl_pkg",
+      desc:    '''
+        RACL error log information of this module.
+      '''
+    }
+  ]
+//  param_list: [
+//  ]
+  regwidth: "32",
+  registers: [
+    { name: "CTRL",
+      desc: "I3C control register",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "0",
+          name:   "CTRL_TX_EN",
+          desc:   "Controller TX enable",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "CTRL_RX_EN",
+          desc:   "Controller RX enable",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "TARG_TX_EN",
+          desc:   "Target TX enable",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "TARG_RX_EN",
+          desc:   "Target RX enable",
+          resval: "0"
+        }
+        { bits:   "8"
+          name:   "HDR_DDR_EN",
+          desc:   "HDR-DDR mode enable",
+          resval: "0"
+        }
+        { bits:   "31:16",
+          name:   "CLKDIV",
+          desc:   "Clock divisor for Controller-driven SCL signaling.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "STATUS",
+      desc:     "I3C status register",
+      swaccess: "ro",
+      hwaccess: "hrw",
+      hwext:    "true",
+      hwre:     "true",
+      fields: [
+        { bits:   "0",
+          name:   "TX_IDLE",
+          desc:   "TX buffer is empty and all bits have been transmitted.",
+        }
+        { bits:   "1",
+          name:   "RX_IDLE",
+          desc:   "RX is idle",
+        }
+      ]
+    }
+    { name:     "PHY_CONFIG",
+      desc:     "PHY configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "0",
+          name:   "SCL_HK_EN",
+          desc:   "High-keeper enable for SCL.",
+          resval: "1"
+        }
+        {
+          bits:   "1",
+          name:   "SDA_HK_EN",
+          desc:   "High-keeper enable for SDA.",
+          resval: "1"
+        }
+      ]    
+    }
+    // Controller Transmission Buffer.
+    { name:     "CTRL_TXBUF_CONFIG",
+      desc:     "Controller TX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Controller TX use.",
+          resval: "0"
+        }
+        { bits:   "31:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Controller TX use (inclusive).",
+          resval: "0x7f"
+        }
+      ]
+    }
+    { name:     "CTRL_TXBUF_WPTR",
+      desc:     "Controller TX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0"
+        }
+      ]    
+    }
+    { name:     "CTRL_TXBUF_RPTR",
+      desc:     "Controller TX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address."
+          resval: "0"
+        }
+      ]
+    }
+    // Controller Reception Buffer.
+    { name:     "CTRL_RXBUF_CONFIG",
+      desc:     "Controller RX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Controller RX use.",
+          resval: "0x80"
+        }
+        { bits:   "31:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Controller RX use (inclusive).",
+          resval: "0xff"
+        }
+      ]
+    }
+    { name:     "CTRL_RXBUF_WPTR",
+      desc:     "Controller RX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x80"
+        }
+      ]    
+    }
+    { name:     "CTRL_RXBUF_RPTR",
+      desc:     "Controller RX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x80"
+        }
+      ]
+    }
+    // Target Transmission Buffer.
+    { name:     "TARG_TXBUF_CONFIG",
+      desc:     "Target TX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Target TX use.",
+          resval: "0x100"
+        }
+        { bits:   "31:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Target TX use (inclusive).",
+          resval: "0x17f"
+        }
+      ]
+    }
+    { name:     "TARG_TXBUF_WPTR",
+      desc:     "Target TX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x100"
+        }
+      ]    
+    },
+    { name:     "TARG_TXBUF_RPTR",
+      desc:     "Target TX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x100"
+        }
+      ]
+    }
+    // Target Reception Buffer.
+    { name:     "TARG_RXBUF_CONFIG",
+      desc:     "Target RX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Target RX use.",
+          resval: "0x180"          
+        }
+        { bits:   "31:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Target RX use (inclusive).",
+          resval: "0x1ff"
+        }
+      ]
+    }
+    { name:     "TARG_RXBUF_WPTR",
+      desc:     "Target RX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x180"
+        }
+      ]    
+    }
+    { name:     "TARG_RXBUF_RPTR",
+      desc:     "Target RX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x180"
+        }
+      ]
+    }
+    { name: "BUFFER_STATUS",
+      desc: "I3C buffer status register",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext: "true",
+      fields: [
+        { bits: "7:0",
+          name: "TXLVL",
+          desc: "Current fill level of TX buffer"
+        }
+        { bits: "23:16",
+          name: "RXLVL",
+          desc: "Current fill level of RX buffer"
+        }
+      ]
+    }
+    { name:     "TARG_ADDR_MATCH",
+      desc:     "I3C target addresses",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "6:0",
+          name:   "ADDR0",
+          desc:   "First target address",
+          resval: "127"
+        }
+        { bits:   "14:8",
+          name:   "ADDR1",
+          desc:   "Second target address",
+          resval: "127"
+        }
+      ]
+    }
+    { name:     "TARG_ADDR_MASK",
+      desc:     "I3C target address masks",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "6:0",
+          name:   "MASK0",
+          desc:   "First target address mask",
+          resval: "0"
+        }
+        { bits:   "14:8",
+          name:   "MASK1",
+          desc:   "Second target address mask",
+          resval: "0"
+        }
+      ]
+    }
+    { window: {
+        name: "BUFFER",
+        items: "512",
+        validbits: "32",
+        byte-write: "true",
+        unusual: "false"
+        swaccess: "rw",
+        desc: '''Software-managed 2KiB message buffer used for transmitting and receiving messages.
+              '''
+      },
+    },
+  ]
+}
