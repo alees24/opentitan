@@ -1,0 +1,181 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+{
+  name:               "i3c",
+  human_name:         "I3C",
+  one_line_desc:      "I3C Controller/Target",
+  one_paragraph_desc: '''I3C block'''
+  // Unique comportable IP identifier defined under KNOWN_CIP_IDS in the regtool.
+  // TODO:
+  cip_id:             "45",
+  design_spec:        "../doc",
+  dv_doc:             "../doc/dv",
+  hw_checklist:       "../doc/checklist",
+  sw_checklist:       "/sw/device/lib/dif/dif_i3c",
+  revisions: [
+  {
+    version:            "1.0.0",
+    life_stage:         "L2",
+    design_stage:       "D3",
+    verification_stage: "V3",
+    commit_id:          "",
+    notes:              ""
+  }
+  ]
+  clocking: [{clock: "clk_i", reset: "rst_ni"}],
+  bus_interfaces: [
+    { protocol: "tlul", direction: "device", racl_support: true }
+  ],
+  available_input_list: [
+    { name: "cio_scl_i", desc: "I3C clock input" }
+    { name: "cio_sda_i", desc: "I3C data input" }
+  ],
+  available_output_list: [
+    { name: "cip_scl_o", desc: "I3C clock output" }
+    { name: "cip_scl_en_o", desc: "I3C clock enable output" }
+    { name: "cip_scl_od_en_o", desc: "I3C clock Open Drain enable output" }
+    { name: "cip_sda_o", desc: "I3C data output" }
+    { name: "cip_sda_en_o", desc: "I3C data enable output" }
+    { name: "cip_sda_od_en_o", desc: "I3C data Open Drain enable output" }
+  ],
+  interrupt_list: [
+    { name:    "done",
+      type:    "status",
+      default: "1",
+      desc:    ""
+    }
+  ],
+  alert_list: [
+    { name: "fatal_fault",
+      desc: '''
+      This fatal alert is triggered when a fatal TL-UL bus integrity fault is detected.
+      '''
+    }
+  ],
+  inter_signal_list: [
+    { struct: "logic"
+      type:   "uni"
+      name:   "lsio_trigger"
+      desc: '''
+            Self-clearing status trigger for the DMA.
+            Set when RX or TX buffers are past their configured watermarks matching watermark interrupt behaviour.
+      '''
+      act:    "req"
+    }
+    { struct:  "racl_policy_vec",
+      type:    "uni",
+      name:    "racl_policies",
+      act:     "rcv",
+      package: "top_racl_pkg",
+      desc:    '''
+        Incoming RACL policy vector from a racl_ctrl instance.
+        The policy selection vector (parameter) selects the policy for each register.
+      '''
+    }
+    { struct:  "racl_error_log",
+      type:    "uni",
+      name:    "racl_error",
+      act:     "req",
+      width:   "1"
+      package: "top_racl_pkg",
+      desc:    '''
+        RACL error log information of this module.
+      '''
+    }
+  ]
+//  param_list: [
+//  ]
+  regwidth: "32",
+  registers: [
+    { name: "CTRL",
+      desc: "I3C control register",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits: "0",
+          name: "CTRL_EN",
+          desc: "Controller enable"
+        }
+        { bits: "1",
+          name: "TARG_EN",
+          desc: "Target enable"
+        }
+        { bits: "31:16",
+          name: "CLKDIV",
+          desc: "Clock divisor for Controller-driven SCL signaling."
+        }
+      ]
+    },
+    { name:     "STATUS"
+      desc:     "I3C status register"
+      swaccess: "ro"
+      hwaccess: "hrw"
+      hwext:    "true"
+      hwre:     "true"
+      fields: [
+        { bits: "0"
+          name: "TX_IDLE"
+          desc: "TX buffer is empty and all bits have been transmitted"
+          resval: "1"
+        }
+        { bits: "1"
+          name: "RX_IDLE"
+          desc: "RX is idle"
+          resval: "1",
+        }
+      ]
+    }
+    { name: "BUFFER_CONFIG",
+      desc: "BUFFER configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      hwqe:     "true",
+      fields: [
+        { bits: "7:0",
+          name: "CTRL_TX_SIZE",
+          desc: "Size of Controller transmission buffer in words"
+        }
+        { bits: "15:8",
+          name: "CTRL_RX_SIZE",
+          desc: "Size of Controller reception buffer in words"
+        }
+        { bits: "23:16",
+          name: "TARG_TX_SIZE",
+          desc: "Size of Target transmission buffer in words"
+        }
+        { bits: "31:24",
+          name: "TARG_RX_SIZE",
+          desc: "Size of Target reception buffer in words"
+        }
+      ]
+    }
+    { name: "BUFFER_STATUS",
+      desc: "I3C buffer status register",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext: "true",
+      fields: [
+        { bits: "7:0",
+          name: "TXLVL",
+          desc: "Current fill level of TX buffer"
+        }
+        { bits: "23:16",
+          name: "RXLVL",
+          desc: "Current fill level of RX buffer"
+        }
+      ]
+    }
+    { window: {
+        name: "BUFFER",
+        items: "512",
+        validbits: "32",
+        byte-write: "true",
+        unusual: "false"
+        swaccess: "rw",
+        desc: '''Software-managed 2KiB message buffer used for transmitting and receiving messages.
+              '''
+      },
+    },
+  ]
+}
