@@ -1,0 +1,13 @@
+// Copyright lowRISC contributors.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+`verilator_config
+
+lint_off -rule WIDTH -file "*/prim_diff_decode.sv"
+lint_off -rule WIDTH -file "*/tlul_fifo_sync.sv"
+lint_off -rule WIDTH -file "*/rtl/i3c_patt_detector.sv"
+lint_off -rule ALWCOMBORDER -file "*/rtl/prim_*.sv" -match "Always_comb variable driven after use: '*_tree'"
+lint_off -rule UNOPTFLAT -file "*/rtl/prim_*.sv" -match "Signal unoptimizable: Feedback to clock or circular logic: 'tb.dut.*_tree'"
+lint_off -rule UNOPTFLAT -file "*/rtl/prim_*.sv" -match "Signal unoptimizable: Circular combinational logic: 'tb.dut.*_tree'"
+lint_off -rule SYMRSVDWORD -file "*/rtl/i3c_reg_pkg.sv" -match "Symbol matches C++ common word: 'abort'"

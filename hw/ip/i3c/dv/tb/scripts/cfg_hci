@@ -1,0 +1,14 @@
+// Slower signalling test.
+W:CTRL_CLK_CONFIG:f:f0200
+// Load message for controller to transmit
+L:XFER_DATA_PORT:shortmsg
+// Send 127 words of data (= 508 bytes).
+W:CTRL_TXBUF_WPTR:f:7f
+// Transmit the message to the target
+W:CTRL:f:009
+#288000
+// Save message received by the target
+S:e00:1fc:out
+// Terminate simulation
+X:fff:0:0
+

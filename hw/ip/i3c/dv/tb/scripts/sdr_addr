@@ -1,0 +1,23 @@
+// Enable all interrupts.
+W:INTR_STATUS_ENABLE:f:ffffffff
+W:PIO_INTR_STATUS_ENABLE:f:ffffffff
+W:STBY_CR_INTR_STATUS_ENABLE:f:ffffffff
+W:INTR_SIGNAL_ENABLE:f:ffffffff
+W:PIO_INTR_SIGNAL_ENABLE:f:ffffffff
+W:STBY_CR_INTR_SIGNAL_ENABLE:f:ffffffff
+W:INTR_ENABLE:f:ffffffff
+// Basic SDR write to the target.
+W:CTRL:f:009
+C:CTRL:009
+W:TARG_ADDR_MATCH:f:7f18
+W:TARG_ADDR_MASK:f:7f
+W:800:f:18012345
+W:CTRL_TXBUF_WPTR:f:1
+#128
+// Reset the Controller and Target logic
+W:CTRL:f:c0000000
+// Clear the message buffer
+W:BUFFER_CTRL:f:80000000
+// Terminate simulation
+X:fff:0:0
+

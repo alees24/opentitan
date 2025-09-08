@@ -1,0 +1,29 @@
+// Basic write/read test of DCT and DAT
+W:DCT:f:ffffffff
+W:DAT:f:ffffffff
+W:404:f:ffffffff
+// Complete the DAT entry.
+W:304:f:ffffffff
+// Complete the DCT entry
+W:408:f:ffffffff
+W:40c:f:ffffffff
+// Read back the first word from each.
+R:DAT
+R:DCT
+#128
+// Read and check the DCT entry.
+C:DCT:ffffffff
+C:404:0000ffff
+C:408:0000ffff
+C:40c:000000ff
+// Read and check the DAT entry.
+C:DAT:fcfff07f
+C:304:07ffffff
+// Load test data into each table.
+L:DCT:dct
+L:DAT:dat
+// Save table contents.
+S:DAT:100:outdat
+S:DCT:200:outdct
+// Terminate simulation
+X:fff:0:0

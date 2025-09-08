@@ -1,0 +1,766 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="297mm"
+   height="210mm"
+   viewBox="0 0 297 210"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   sodipodi:docname="block_diagram.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.2387644"
+     inkscape:cx="613.11095"
+     inkscape:cy="415.73685"
+     inkscape:window-width="2560"
+     inkscape:window-height="1403"
+     inkscape:window-x="0"
+     inkscape:window-y="1236"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible;"
+       id="Arrow1Mend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Mend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.4) rotate(180) translate(10,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt;"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path32418" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Mstart"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow1Mstart"
+       inkscape:isstock="true">
+      <path
+         transform="scale(0.4) translate(10,0)"
+         style="fill-rule:evenodd;fill:context-stroke;stroke:context-stroke;stroke-width:1.0pt"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         id="path32415" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lstart"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lstart"
+       inkscape:isstock="true">
+      <path
+         transform="scale(1.1) translate(1,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="stroke:context-stroke;fill-rule:evenodd;fill:context-stroke;stroke-width:0.62500000;stroke-linejoin:round"
+         id="path32427" />
+    </marker>
+    <marker
+       style="overflow:visible;"
+       id="Arrow2Lend"
+       refX="0.0"
+       refY="0.0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="scale(1.1) rotate(180) translate(1,0)"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         style="stroke:context-stroke;fill-rule:evenodd;fill:context-stroke;stroke-width:0.62500000;stroke-linejoin:round;"
+         id="path32430" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-8"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-8-4"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-5-1" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-5"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-9" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-8-3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-5-8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-1"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-6"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-4" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lstart-3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lstart"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(1.1,0,0,1.1,1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32427-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-6-8"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-4-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-8-8"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-5-9" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow2Lend-5-2-8-8-7"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow2Lend"
+       inkscape:isstock="true">
+      <path
+         transform="matrix(-1.1,0,0,-1.1,-1.1,0)"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:0.625;stroke-linejoin:round"
+         id="path32430-9-1-5-9-6" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="35.535076"
+       y="15.332333"
+       id="text1970"><tspan
+         sodipodi:role="line"
+         id="tspan1968"
+         style="stroke-width:0.264583"
+         x="35.535076"
+         y="15.332333">Rough overview of I3C IP block structure</tspan></text>
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.256"
+       id="rect5018"
+       width="17.220348"
+       height="100.73099"
+       x="71.644394"
+       y="24.327429" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.256"
+       id="rect5020"
+       width="51.039486"
+       height="17.126659"
+       x="99.530212"
+       y="25.387184" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.29276"
+       id="rect5022"
+       width="50.362064"
+       height="20.154222"
+       x="99.853477"
+       y="46.688679" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.256"
+       id="rect5024"
+       width="50.032146"
+       height="20.151073"
+       x="99.853477"
+       y="71.076241" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.2737"
+       id="rect5147"
+       width="115.97383"
+       height="29.924782"
+       x="99.597961"
+       y="94.946167" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.294065"
+       id="rect5251"
+       width="43.722637"
+       height="34.25383"
+       x="156.18297"
+       y="25.178535" />
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.293258"
+       id="rect5253"
+       width="43.101551"
+       height="28.412228"
+       x="156.34222"
+       y="63.380615" />
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="-117.4251"
+       y="81.122185"
+       id="text6481"
+       transform="rotate(-90)"><tspan
+         sodipodi:role="line"
+         id="tspan6479"
+         style="stroke-width:0.264583"
+         x="-117.4251"
+         y="81.122185">TileLink interface, registers, interrupts and alerts.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="109.33533"
+       y="32.977634"
+       id="text12973"><tspan
+         sodipodi:role="line"
+         id="tspan12971"
+         style="stroke-width:0.264583"
+         x="109.33533"
+         y="32.977634">Command queue</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="109.33533"
+         y="37.387348"
+         id="tspan12975">(2 DWORDS/entry)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="109.99908"
+       y="55.786583"
+       id="text14257"><tspan
+         sodipodi:role="line"
+         id="tspan14255"
+         style="stroke-width:0.264583"
+         x="109.99908"
+         y="55.786583">Response queue</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="109.99908"
+         y="60.196297"
+         id="tspan14259">(1 DWORD/entry)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="134.7802"
+       y="106.82262"
+       id="text17197"><tspan
+         sodipodi:role="line"
+         id="tspan17195"
+         style="stroke-width:0.264583"
+         x="134.7802"
+         y="106.82262">Message buffer</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="134.7802"
+         y="111.23233"
+         id="tspan17201">(TX FIFO for Command data and</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="134.7802"
+         y="115.64204"
+         id="tspan17199">RX FIFO for Response data)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="158.5513"
+       y="34.219227"
+       id="text23421"><tspan
+         sodipodi:role="line"
+         id="tspan23419"
+         style="stroke-width:0.264583"
+         x="158.5513"
+         y="34.219227">Controller</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="158.5513"
+         y="38.628941"
+         id="tspan23423">logic</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="158.5513"
+         y="43.038651"
+         id="tspan27163">(Active Controller)</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="158.5513"
+         y="47.448364"
+         id="tspan27165">50MHz synchronous</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="158.5513"
+         y="51.858078"
+         id="tspan27167">logic</tspan></text>
+    <rect
+       style="fill:#aaccff;stroke:#000000;stroke-width:0.22462"
+       id="rect27881"
+       width="11.548006"
+       height="67.108894"
+       x="204.04973"
+       y="24.967201" />
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="110.05551"
+       y="79.433517"
+       id="text31221"><tspan
+         sodipodi:role="line"
+         id="tspan31219"
+         style="stroke-width:0.264583"
+         x="110.05551"
+         y="79.433517">In Band Interrupts</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="110.05551"
+         y="83.843231"
+         id="tspan31223">queue</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend)"
+       d="m 89.194495,33.823738 9.547237,0.01292"
+       id="path32327"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.552;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-start:url(#Arrow1Mstart);marker-end:url(#Arrow1Mend)"
+       d="m 48.917755,59.380232 19.80985,0.01292"
+       id="path32327-3"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-start:url(#Arrow2Lstart-3);marker-end:url(#Arrow2Lend-6-8)"
+       d="m 216.41072,48.74682 9.54724,0.01292"
+       id="path32327-3-0"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-1)"
+       d="m 89.509062,105.00275 9.547237,0.0129"
+       id="path32327-9"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.190171px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5)"
+       d="m 150.85493,33.85994 4.93223,0.01292"
+       id="path32327-6"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.190171px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2)"
+       d="m 156.01909,54.104255 -4.93223,0.01292"
+       id="path32327-6-7"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.166036px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-5)"
+       d="m 154.27355,79.409949 -3.75973,0.01292"
+       id="path32327-6-7-75"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.275471px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-8)"
+       d="m 99.63992,54.958562 -10.349188,0.01292"
+       id="path32327-6-7-7"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.275471px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-8-8)"
+       d="M 71.654488,85.292955 61.3053,85.305875"
+       id="path32327-6-7-7-7"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.275471px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-8-8-7)"
+       d="m 71.654485,103.81379 -10.349188,0.0129"
+       id="path32327-6-7-7-7-4"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.275471px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-8-3)"
+       d="m 99.508764,116.65381 -10.349188,0.0129"
+       id="path32327-6-7-7-83"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.275471px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;marker-end:url(#Arrow2Lend-5-2-8-4)"
+       d="m 99.936056,79.897762 -10.349174,0.0129"
+       id="path32327-6-7-7-8"
+       sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="160.29855"
+       y="69.619057"
+       id="text35821"><tspan
+         sodipodi:role="line"
+         id="tspan35819"
+         style="stroke-width:0.264583"
+         x="160.29855"
+         y="69.619057">Target logic</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="160.29855"
+         y="74.02877"
+         id="tspan35823">(Secondary Controller</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="160.29855"
+         y="78.438484"
+         id="tspan35827">and/or dedicated</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="160.29855"
+         y="82.848198"
+         id="tspan35831">Target), driven by</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="160.29855"
+         y="87.257904"
+         id="tspan35833">received SCL/SDA.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="-89.946503"
+       y="208.61917"
+       id="text38135"
+       transform="rotate(-90)"><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="-89.946503"
+         y="208.61917"
+         id="tspan40651">Drivers (Open Drain and Push-pull);</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="-89.946503"
+         y="213.02888"
+         id="tspan43991">not dedicated PHY.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="218.62228"
+       y="34.734657"
+       id="text49547"><tspan
+         sodipodi:role="line"
+         id="tspan49545"
+         style="stroke-width:0.264583"
+         x="218.62228"
+         y="34.734657">SCL</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52777px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="218.3502"
+       y="54.803177"
+       id="text49547-4"><tspan
+         sodipodi:role="line"
+         id="tspan49545-8"
+         style="stroke-width:0.264583"
+         x="218.3502"
+         y="54.803177">SDA</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:2.82223px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="87.883591"
+       y="136.68233"
+       id="text74810"><tspan
+         sodipodi:role="line"
+         id="tspan74808"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="136.68233">The intention is to operate almost all of the design synchronously on a</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="140.21011"
+         id="tspan74814">fixed-frequency 50MHz clock, including the TL-UL interface, message buffer,</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="143.7379"
+         id="tspan74818">all of the Controller-side logic, and as much of the Target-side logic as possible.</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="147.26569"
+         id="tspan74822" /><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="150.79347"
+         id="tspan74826">The I3C-side logic and conversion between driver signals and data words shall</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="154.32126"
+         id="tspan74828">be driven by the Controller-supplied clock (SCL) received over the I3C bus,</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="157.84906"
+         id="tspan74830">in order to guarantee the response time, keep the IP clock frequency low, and</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="161.37685"
+         id="tspan74832">reduced power consumption in Deep Sleep.</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="164.90463"
+         id="tspan74838" /><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="168.43242"
+         id="tspan74840">The 50MHz frequency choice lends itself naturally to Double Data Rate (HDR-DDR)</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="171.96021"
+         id="tspan74842">operation at the 12.5MHz frequency of the I3C bus, and if there is no 50MHz clock</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="175.48799"
+         id="tspan74844">available within the chip - e.g. if the other peripherals require a different frequency -</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="179.01578"
+         id="tspan74846">then it may be necessary to have a dedicated clock and implement CDC within</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="182.54356"
+         id="tspan74848">the TL-UL fabric.</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="186.07135"
+         id="tspan74850" /><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="189.59914"
+         id="tspan74852">Implementation of the HCI is expected to be PIO-only and not, at this stage, include</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="193.12692"
+         id="tspan74856">support for DMA Mode (Ring Buffers).</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="196.65472"
+         id="tspan74834" /><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="87.883591"
+         y="200.18251"
+         id="tspan74836" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:2.82223px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="220.65427"
+       y="64.991974"
+       id="text84822"><tspan
+         sodipodi:role="line"
+         id="tspan84820"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="64.991974">12.5MHz I3C</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="68.51976"
+         id="tspan85618">signalling, but</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="72.047546"
+         id="tspan85622">Double Data</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="75.57534"
+         id="tspan85624">Rate (HDR-DDR)</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="79.103127"
+         id="tspan85626">gives 25Mbps.</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="82.630913"
+         id="tspan85628"></tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="86.158699"
+         id="tspan85632">Single-lane</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="220.65427"
+         y="89.686485"
+         id="tspan85630">SDA anticipated.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:2.82223px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="39.26939"
+       y="46.439213"
+       id="text92516"><tspan
+         sodipodi:role="line"
+         id="tspan92514"
+         style="stroke-width:0.264583"
+         x="39.26939"
+         y="46.439213">50MHz</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="39.26939"
+         y="49.966999"
+         id="tspan92518">TileLink-UL</tspan><tspan
+         sodipodi:role="line"
+         style="stroke-width:0.264583"
+         x="39.26939"
+         y="53.494789"
+         id="tspan92520">if possible</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:2.82223px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="43.5522"
+       y="85.49118"
+       id="text94600"><tspan
+         sodipodi:role="line"
+         id="tspan94598"
+         style="stroke-width:0.264583"
+         x="43.5522"
+         y="85.49118">Interrupt(s)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:2.82223px;line-height:1.25;font-family:sans-serif;stroke-width:0.264583"
+       x="48.302338"
+       y="104.38097"
+       id="text98630"><tspan
+         sodipodi:role="line"
+         id="tspan98628"
+         style="stroke-width:0.264583"
+         x="48.302338"
+         y="104.38097">Alert(s)</tspan></text>
+  </g>
+</svg>

@@ -1,0 +1,61 @@
+// Basic smoke test of functionality.
+C:CTRL:0
+W:CTRL:f:fedc0000
+W:014:f:00054321
+W:800:f:12345678
+W:804:f:11111111
+W:808:f:22222222
+W:80c:f:eeeeeeee
+W:810:f:ffffffff
+W:814:f:87654321
+W:840:1:cdcdcd55
+W:844:2:cdcdaacd
+W:848:3:cdcd55aa
+W:84c:8:55cdcdcd
+W:850:4:cdaacdcd
+R:800
+R:804
+R:808
+R:80c
+R:840
+R:844
+R:848
+R:84c
+// Present a word of TX data to each party
+W:800:f:baadf00d
+W:804:f:beefcafe
+W:808:f:deafbeef
+W:80c:f:8badf00d
+W:810:f:00c0ffee
+W:814:f:0c1cada5
+W:CTRL_TXBUF_WPTR:f:6
+W:c00:f:decea5ed
+W:c04:f:ca1c1f1e
+W:c08:f:ca11ab1e
+W:c0c:f:ca5caded
+W:c10:f:c0a1e5ce
+W:c14:f:0c0bb1ed
+W:c18:f:00faffed
+W:TARG_TXBUF_WPTR:f:107
+// Start controller and target.
+W:CTRL:f:009
+C:CTRL:009
+#840
+W:CTRL:f:006
+#960
+// Reset the Controller and Target logic
+W:CTRL:f:c0000000
+// Clear the message buffer
+W:BUFFER_CTRL:f:80000000
+// Load message for controller to transmit
+L:800:shortmsg
+// Send 127 words of data (= 508 bytes).
+W:CTRL_TXBUF_WPTR:f:7f
+// Transmit the message to the target
+W:CTRL:f:009
+#20480
+// Save message received by the target
+S:e00:1fc:out
+// Terminate simulation
+X:fff:0:0
+

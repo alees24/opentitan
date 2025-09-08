@@ -367,7 +367,7 @@ These buffers are available for receiving OUT DATA packets.
 ### usbstat . sense
 Reflects the state of the sense pin.
 1 indicates that the host is providing VBUS.
-Note that this bit always shows the state of the actual pin and does not take account of the override control.
+Note that this bit always shows the state of the actual pin and is unaffected by the direct pin driving in [`phy_pins_drive`](#phy_pins_drive).
 
 ### usbstat . link_state
 State of USB link, decoded from line.

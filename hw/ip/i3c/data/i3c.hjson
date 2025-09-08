@@ -1,0 +1,1806 @@
+// Copyright lowRISC contributors (OpenTitan project).
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+{
+  name:               "i3c",
+  human_name:         "I3C",
+  one_line_desc:      "I3C Controller/Target",
+  one_paragraph_desc: '''I3C block'''
+  // Unique comportable IP identifier defined under KNOWN_CIP_IDS in the regtool.
+  // TODO:
+  cip_id:             "45",
+  design_spec:        "../doc",
+  dv_doc:             "../doc/dv",
+  hw_checklist:       "../doc/checklist",
+  sw_checklist:       "/sw/device/lib/dif/dif_i3c",
+  revisions: [
+  {
+    version:            "1.0.0",
+    life_stage:         "L2",
+    design_stage:       "D3",
+    verification_stage: "V3",
+    commit_id:          "",
+    notes:              ""
+  }
+  ]
+  clocking: [{clock: "clk_i", reset: "rst_ni"}],
+  bus_interfaces: [
+    { protocol: "tlul", direction: "device", racl_support: true }
+  ],
+  available_input_list: [
+    { name: "cio_scl_i", desc: "I3C clock input" }
+    { name: "cio_sda_i", desc: "I3C data input" }
+  ],
+  available_output_list: [
+    { name: "cip_scl_o", desc: "I3C clock output" }
+    { name: "cip_scl_en_o", desc: "I3C clock enable output" }
+    { name: "cip_scl_od_en_o", desc: "I3C clock Open Drain enable output" }
+    { name: "cip_sda_o", desc: "I3C data output" }
+    { name: "cip_sda_en_o", desc: "I3C data enable output" }
+    { name: "cip_sda_od_en_o", desc: "I3C data Open Drain enable output" }
+  ],
+  interrupt_list: [
+    // Global master interrupt, asserted when any HCI interrupt is pending.
+    { name:    "hci",
+      type:    "status",
+      default: "0",
+      desc:    "HCI master interrupt."
+    }
+  ],
+  alert_list: [
+    { name: "fatal_fault",
+      desc: '''
+      This fatal alert is triggered when a fatal TL-UL bus integrity fault is detected.
+      '''
+    }
+  ],
+  inter_signal_list: [
+    { struct: "logic"
+      type:   "uni"
+      name:   "lsio_trigger"
+      desc: '''
+            Self-clearing status trigger for the DMA.
+            Set when RX or TX buffers are past their configured watermarks matching watermark interrupt behaviour.
+      '''
+      act:    "req"
+    }
+    { struct:  "racl_policy_vec",
+      type:    "uni",
+      name:    "racl_policies",
+      act:     "rcv",
+      package: "top_racl_pkg",
+      desc:    '''
+        Incoming RACL policy vector from a racl_ctrl instance.
+        The policy selection vector (parameter) selects the policy for each register.
+      '''
+    }
+    { struct:  "racl_error_log",
+      type:    "uni",
+      name:    "racl_error",
+      act:     "req",
+      width:   "1"
+      package: "top_racl_pkg",
+      desc:    '''
+        RACL error log information of this module.
+      '''
+    }
+  ]
+  param_list: [
+    { name:    "NumDATEntries",
+      type:    "int",
+      default: "32",
+      desc:     "Number of entries in the Device Address Table."
+    },
+    { name:    "NumDCTEntries",
+      type:    "int",
+      default: "32",
+      desc:    "Number of entries in the Device Characteristic Table."
+    },
+    // TODO: Resolve this duplication of word counts and entry counts.
+    { name:    "NumDATWords",
+      type:    "int",
+      default: "64",
+      desc:    "Size of the Device Address Table in bus words."
+    },
+    { name:    "NumDCTWords",
+      type:    "int",
+      default: "128",
+      desc:    "Size of the Device Characteristic Table in bus words."
+    }
+  ]
+  regwidth: "32",
+  registers: [
+    { name: "CTRL",
+      desc: "I3C control register",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "0",
+          name:   "CTRL_TX_EN",
+          desc:   "Controller TX enable",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "CTRL_RX_EN",
+          desc:   "Controller RX enable",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "TARG_TX_EN",
+          desc:   "Target TX enable",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "TARG_RX_EN",
+          desc:   "Target RX enable",
+          resval: "0"
+        }
+        { bits:   "8",
+          name:   "HDR_DDR_EN",
+          desc:   "HDR-DDR mode enable",
+          resval: "0"
+        }
+        { bits:     "30",
+          name:     "CTRL_RESET",
+          desc:     "Software reset of Controller logic.",
+          hwqe:     "true",
+          swaccess: "wo",
+          hwaccess: "hro",
+          resval:   "0"
+        }
+        { bits:     "31",
+          name:     "TARG_RESET",
+          desc:     "Software reset of Target logic.",
+          hwqe:     "true",
+          swaccess: "wo",
+          hwaccess: "hro",
+          resval:   "0"
+        }
+      ]
+    }
+    { name:     "STATUS",
+      desc:     "I3C status register",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "0",
+          name:   "DUMMY",
+          desc:   "Dummy field; no status information yet.",
+        }
+      ]
+    }
+    { name:     "PHY_CONFIG",
+      desc:     "PHY configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "0",
+          name:   "SCL_HK_EN",
+          desc:   "High-keeper enable for SCL.",
+          resval: "1"
+        }
+        {
+          bits:   "1",
+          name:   "SDA_HK_EN",
+          desc:   "High-keeper enable for SDA.",
+          resval: "1"
+        }
+      ]
+    }
+    // Controller Transmission Buffer.
+    { name:     "CTRL_TXBUF_CONFIG",
+      desc:     "Controller TX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Controller TX use.",
+          resval: "0"
+        }
+        { bits:   "25:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Controller TX use (inclusive).",
+          resval: "0x7f"
+        }
+        { bits:    "30:28",
+          name:    "SIZE_VAL",
+          desc:    '''Size value presented as `QUEUE_SIZE.TX_DATA_BUFFER_SIZE`.
+                   This value is log2(size in DWORDs) - 1.
+                   '''
+          resval:  "6"
+        }
+      ]
+    }
+    { name:     "CTRL_TXBUF_WPTR",
+      desc:     "Controller TX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "CTRL_TXBUF_RPTR",
+      desc:     "Controller TX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address."
+          resval: "0"
+        }
+      ]
+    }
+    // Controller Reception Buffer.
+    { name:     "CTRL_RXBUF_CONFIG",
+      desc:     "Controller RX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Controller RX use.",
+          resval: "0x80"
+        }
+        { bits:   "25:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Controller RX use (inclusive).",
+          resval: "0xff"
+        }
+        { bits:    "30:28",
+          name:    "SIZE_VAL",
+          desc:    '''Size value presented as `QUEUE_SIZE.TX_DATA_BUFFER_SIZE`.
+                   This value is log2(size in DWORDs) - 1.
+                   '''
+          resval:  "6"
+        }
+      ]
+    }
+    { name:     "CTRL_RXBUF_WPTR",
+      desc:     "Controller RX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x80"
+        }
+      ]
+    }
+    { name:     "CTRL_RXBUF_RPTR",
+      desc:     "Controller RX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x80"
+        }
+      ]
+    }
+    // Target Transmission Buffer.
+    { name:     "TARG_TXBUF_CONFIG",
+      desc:     "Target TX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Target TX use.",
+          resval: "0x100"
+        }
+        { bits:   "25:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Target TX use (inclusive).",
+          resval: "0x17f"
+        }
+      ]
+    }
+    { name:     "TARG_TXBUF_WPTR",
+      desc:     "Target TX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x100"
+        }
+      ]
+    },
+    { name:     "TARG_TXBUF_RPTR",
+      desc:     "Target TX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x100"
+        }
+      ]
+    }
+    // Target Reception Buffer.
+    { name:     "TARG_RXBUF_CONFIG",
+      desc:     "Target RX Buffer Configuration",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9:0",
+          name:   "MIN_ADDR",
+          desc:   "Minimum address for Target RX use.",
+          resval: "0x180"
+        }
+        { bits:   "25:16",
+          name:   "MAX_ADDR",
+          desc:   "Maximum address for Target RX use (inclusive).",
+          resval: "0x1ff"
+        }
+      ]
+    }
+    { name:     "TARG_RXBUF_WPTR",
+      desc:     "Target RX Buffer Write Pointer",
+      swaccess: "rw",
+      hwaccess: "hrw",  // TODO
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current write address.",
+          resval: "0x180"
+        }
+      ]
+    }
+    { name:     "TARG_RXBUF_RPTR",
+      desc:     "Target RX Buffer Read Pointer",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "15:0",
+          name:   "ADDR",
+          desc:   "Current read address.",
+          resval: "0x180"
+        }
+      ]
+    }
+    { name:     "BUFFER_CTRL",
+      desc:     "Buffer control",
+      swaccess: "rw",
+      hwaccess: "hro",
+      hwqe:     "true",
+      fields: [
+        { bits:     "31",
+          name:     "CLEAR",
+          desc:     '''
+                    Software clear of buffer state including the following:
+                    - All `WPTR` and `RPTR` values are set to the corresponding
+                    the `MIN` values, emptying all circular buffers.
+                    '''
+          swaccess: "wo"
+        }
+      ]
+    }
+    { name:     "TARG_ADDR_MATCH",
+      desc:     "I3C target addresses",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "6:0",
+          name:   "ADDR0",
+          desc:   "First target address",
+          resval: "127"
+        }
+        { bits:   "14:8",
+          name:   "ADDR1",
+          desc:   "Second target address",
+          resval: "127"
+        }
+      ]
+    }
+    { name:     "TARG_ADDR_MASK",
+      desc:     "I3C target address masks",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "6:0",
+          name:   "MASK0",
+          desc:   "First target address mask",
+          resval: "0"
+        }
+        { bits:   "14:8",
+          name:   "MASK1",
+          desc:   "Second target address mask",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "CTRL_CLK_CONFIG",
+      desc:     "Controller clock configuration.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31:16",
+          name:   "CLKDIV",
+          desc:   "Clock divisor for Controller-driven SCL signaling.",
+          resval: "0"
+        }
+        { bits:   "15:8",
+          name:   "TCAS",
+          desc:   "Address Setup cycles.",
+          resval: "2"
+        }
+        { bits:   "7:0",
+          name:   "TCBP",
+          desc:   "STOP cycles.",
+          resval: "0"
+        }
+      ]
+    }
+    { skipto:   "0x100" },
+    { name:     "HCI_VERSION",
+      desc:     "HCI Version."
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31:0",
+          name:   "VERSION",
+          desc:   "HCI Version."
+          resval: "0x120"
+        }
+      ]
+    },
+    { name:     "HC_CONTROL",
+      desc:     "Host Controller Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31",
+          name:   "BUS_ENABLE",
+          desc:   "Host Controller Bus Enable.",
+          resval: "0"
+        },
+        { bits:   "30",
+          name:   "RESUME",
+          desc:   "Host Controller Resume.",
+          resval: "0"
+        },
+        { bits:   "29",
+          name:   "ABORT",
+          desc:   "Host Controller Abort.",
+          resval: "0"
+        },
+        { bits:   "12",
+          name:   "HALT_ON_CMD_SEQ_TIMEOUT",
+          desc:   "Halt on Comamnd Sequence Timeout.",
+          resval: "0"
+        },
+        { bits:   "8",
+          name:   "HOT_JOIN_CTRL",
+          desc:   "Hot-Join ACK/NACK Control.",
+          resval: "0"
+        },
+        { bits:   "7",
+          name:   "I2C_DEV_PRESENT",
+          desc:   "I2C Device Present on Bus.",
+          resval: "0"
+        },
+        // TODO: Confirm that DMA mode is _not_ going to be implemented.
+        { bits:     "6",
+          name:     "MODE_SELECTOR",
+          desc:     "DMA/PIO Mode Selector.",
+          swaccess: "ro",
+          hwaccess: "hwo",
+          resval:   "1"
+        },
+        { bits:     "4",
+          name:     "DATA_BYTE_ORDER_MODE",
+          desc:     "Data Byte Ordering Mode.",
+          swaccess: "ro",
+          hwaccess: "hwo",
+          resval:   "0"
+        },
+        { bits:     "3",
+          name:     "AUTOCMD_DATA_RPT",
+          desc:     "Auto-Command Data Report.",
+          resval:   "1"
+        },
+        { bits:     "0",
+          name:     "IBA_INCLUDE",
+          desc:     "Include I3C Broadcast Address.",
+          resval:   "0"
+        }
+      ]
+    },
+    { name:     "CONTROLLER_DEVICE_ADDR",
+      desc:     "Controller Device Address.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31",
+          name:   "DYNAMIC_ADDR_VALID",
+          desc:   "Dynamic Address is Valid.",
+          resval: "0"
+        }
+        { bits:   "22:16",
+          name:   "DYNAMIC_ADDR",
+          desc:   "Device Dynamic Address.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "HC_CAPABILITIES",
+      desc:     "Host Controller Capabilities.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "30",
+          name:   "SG_CAPABILITY_DC_EN",
+          desc:   "Defines whether the Host Controller supports Scatter-Gather for DC.",
+          resval: "0"
+        }
+        { bits:   "29",
+          name:   "SG_CAPABILITY_IBI_EN",
+          desc:   "Defines whether the Host Controller supports Scatter-Gather for IBI.",
+          resval: "0"
+        }
+        { bits:   "28",
+          name:   "SG_CAPABILITY_CR_EN",
+          desc:   "Defines whether the Host Controller supports Scatter-Gather for CR.",
+          resval: "0"
+        }
+        { bits:   "21:20",
+          name:   "CMD_SIZE",
+          desc:   "Defines the size and structure of the Command Descriptor supported by the Host Controller.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "SCHEDULE_COMMANDS_EN",
+          desc:   "Defines whether the Host Controller supports Scheduled Commands capabilities.",
+          resval: "1"
+        }
+        { bits:   "12",
+          name:   "IBI_CREDIT_COUNT_EN",
+          desc:   "Defines whether the Host Controller supports Target IBI Credit Counting.",
+          resval: "1"
+        }
+        { bits:   "11",
+          name:   "IBI_DATA_ABORT_EN",
+          desc:   "Defines whether the Host Controller supports the IBI Data Abort operation.",
+          resval: "1"
+        }
+        { bits:   "10",
+          name:   "CMD_CCC_DEFBYTE",
+          desc:   "Defines whether the Host Controller supports Transfer Commands that indicate CCCs when Defining Bytes.",
+          resval: "1"
+        }
+        { bits:   "7",
+          name:   "HDR_TS_EN",
+          desc:   "Defines whether the Host Controller supports HDR-Ternary transfers.",
+          resval: "0"
+        }
+        { bits:   "6",
+          name:   "HDR_DDR_EN",
+          desc:   "Defines whether the Host Controller supports HDR-DDR transfers.",
+          resval: "1"
+        }
+        { bits:   "5",
+          name:   "STANDBY_CR_CAP",
+          desc:   "Defines whether the Host Controller supports handoff of the Active Controller role.",
+          resval: "1"
+        }
+        { bits:   "3",
+          name:   "AUTO_COMMAND",
+          desc:   "Defines whether the Host Controller supports Auto-Command functionality.",
+          resval: "1"
+        }
+        { bits:   "2",
+          name:   "COMBO_COMMAND",
+          desc:   "Defines whether the Host Controller supports Combo Transfer Command transfers.",
+          resval: "1"
+        }
+      ]
+    },
+    { skipto: "0x120" },
+    { name:     "RESET_CONTROL",
+      desc:     "Reset Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "5",
+          name:   "IBI_QUEUE_RST",
+          desc:   "IBI Queue Buffer Software Reset.",
+          resval: "0"
+        }
+        { bits:   "4",
+          name:   "RX_FIFO_RST",
+          desc:   "Receive Queue Buffer Software Reset.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "TX_FIFO_RST",
+          desc:   "Transmit Queue buffer Software Reset.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "RESP_QUEUE_RST",
+          desc:   "Response Queue Software Reset.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "CMD_QUEUE_RST",
+          desc:   "Command Queue Software Reset.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "SOFT_RST",
+          desc:   "Core Software Reset.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "PRESENT_STATE",
+      desc:     "Present State.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "2",
+          name:   "AC_CURRENT_OWN",
+          desc:   "Active Controller.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "INTR_STATUS",
+      desc:     "Interrupt Status.",
+      swaccess: "rw1c",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "14",
+          name:   "SCHED_CMD_MISSED_TICK_STAT",
+          desc:   "Scheduled Command Missed Tick.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "HC_ERR_CMD_SEQ_TIMEOUT_STAT",
+          desc:   "Host Controller Command Sequence Timeout.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "HC_WARN_CMD_SEQ_STALL_STAT",
+          desc:   "Host Controller Command Sequence Stall.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "HC_SEQ_CANCEL_STAT",
+          desc:   "Host Controller Cancelled Transaction Sequence.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "HC_INTERNAL_ERR_STAT",
+          desc:   "Host Controller Internal Error.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "INTR_STATUS_ENABLE",
+      desc:     "Interrupt Status Enable.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "14",
+          name:   "SCHED_CMD_MISSED_TICK_STAT_EN",
+          desc:   "Scheduled Command Missed Tick Status Enable.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "HC_ERR_CMD_SEQ_TIMEOUT_STAT_EN",
+          desc:   "Host Controller Command Sequence Timeout Status Enable.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "HC_WARN_CMD_SEQ_STALL_STAT_EN",
+          desc:   "Host Controller Command Sequence Stall Status Enable.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "HC_SEQ_CANCEL_STAT_EN",
+          desc:   "Host Controller Cancelled Transaction Sequence Status Enable.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "HC_INTERNAL_ERR_STAT_EN",
+          desc:   "Host Controller Internal Error Error Status Enable.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "INTR_SIGNAL_ENABLE",
+      desc:     "Interrupt Signal Enable.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "14",
+          name:   "SCHED_CMD_MISSED_TICK_SIGNAL_EN",
+          desc:   "Scheduled Command Missed Tick Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "HC_ERR_CMD_SEQ_TIMEOUT_SIGNAL_EN",
+          desc:   "Host Controller Command Sequence Timeout Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "HC_WARN_CMD_SEQ_STALL_SIGNAL_EN",
+          desc:   "Host Controller Command Sequence Stall Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "HC_SEQ_CANCEL_SIGNAL_EN",
+          desc:   "Host Controller Cancelled Transaction Sequence Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "HC_INTERNAL_ERR_SIGNAL_EN",
+          desc:   "Host Controller Internal Error Signal Enable.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "INTR_FORCE",
+      desc:     "Interrupt Force.",
+      swaccess: "wo",
+      hwaccess: "hro",
+      hwext:    "true",
+      hwqe:     "true",
+      fields: [
+        { bits:   "14",
+          name:   "SCHED_CMD_MISSED_TICK_FORCE",
+          desc:   "Force Scheduled Command Missed Tick.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "HC_ERR_CMD_SEQ_TIMEOUT_FORCE",
+          desc:   "Force Host Controller Command Sequence Timeout.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "HC_WARN_CMD_SEQ_STALL_FORCE",
+          desc:   "Force Host Controller Command Sequence Stall.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "HC_SEQ_CANCEL_FORCE",
+          desc:   "Force Host Controller Cancelled Transaction Sequence.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "HC_INTERNAL_ERR_FORCE",
+          desc:   "Force Host Controller Internal Error.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "DAT_SECTION_OFFSET",
+      desc:     "Device Address Table Section Offset."
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31:28",
+          name:   "ENTRY_SIZE",
+          desc:   "DAT Entry size.",
+          resval: "0"
+        },
+        { bits:   "18:12",
+          name:   "TABLE_SIZE",
+          desc:   "DAT Table Size.",
+          resval: "32"
+        }
+        { bits:   "11:0",
+          name:   "TABLE_OFFSET",
+          desc:   "DAT Table Offset."
+        }
+      ]
+    },
+    { name:     "DCT_SECTION_OFFSET",
+      desc:     "Device Characteristics Table Section Offset."
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31:28",
+          name:   "ENTRY_SIZE",
+          desc:   "DCT Entry size.",
+          resval: "0"
+        },
+        { bits:   "18:12",
+          name:   "TABLE_SIZE",
+          desc:   "DCT Table Size.",
+          resval: "32"
+        }
+        { bits:   "11:0",
+          name:   "TABLE_OFFSET",
+          desc:   "DCT Table Offset."
+        }
+      ]
+    },
+    { name:     "RING_HEADERS_SECTION_OFFSET",
+      desc:     "Ring Headers Section Offset.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "15:0",
+          name:   "SECTION_OFFSET",
+          desc:   "Ring Headers Section Offset.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "PIO_SECTION_OFFSET",
+      desc:     "PIO Section Offset.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "15:0",
+          name:   "SECTION_OFFSET",
+          desc:   "PIO Section Offset.",
+          resval: "0x100"
+        }
+      ]
+    }
+    { name:     "EXT_CAPS_SECTION_OFFSET",
+      desc:     "Extended Capabilities Section Offset.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "15:0",
+          name:   "SECTION_OFFSET",
+          desc:   "Extended Capabilities Section Offset.",
+          resval: "0"
+        }
+      ]
+    }
+    { skipto:   "0x14c" },
+    { name:     "INT_CTRL_CMDS_EN",
+      desc:     "Internal Control Command Subtype Support.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:     "15:1",
+          name:     "MIPI_CMDS_SUPPORTED",
+          desc:     "MIPI Alliance Commands Supported.",
+          // TODO: Revisit.
+          resval:   "0x18"
+        }
+        { bits:     "0",
+          name:     "ICC_SUPPORT",
+          desc:     "Internal Control Commands Supported.",
+          resval:   "1"
+        }
+      ]
+    }
+    { skipto:   "0x158" },
+    { name:     "IBI_NOTIFY_CTRL",
+      desc:     "IBI Notify Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "3",
+          name:   "NOTIFY_IBI_REJECTED",
+          desc:   "Notify Rejected In-Band Interrupt Request Control.",
+          resval: "0"
+        },
+        { bits:   "1",
+          name:   "NOTIFY_CRR_REJECTED",
+          desc:   "Notify Rejected Controller Role Request Control.",
+          resval: "0"
+        },
+        { bits:   "0",
+          name:   "NOTIFY_HJ_REJECTED",
+          desc:   "Notify Rejected Hot-Join Control.",
+          resval: "0"        
+        }
+      ]
+    },
+    { name:     "IBI_DATA_ABORT_CTRL",
+      desc:     "IBI Data Abort Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31",
+          name:   "IBI_DATA_ABORT_MON",
+          desc:   "IBI Data Abort Monitor.",
+          resval: "0"
+        },
+        { bits:   "20:18",
+          name:   "MATCH_STATUS_TYPE",
+          desc:   "Match IBI Status Type.",
+          resval: "0"
+        },
+        { bits:   "17:16",
+          name:   "AFTER_N_CHUNKS",
+          desc:   "Abort After N Chunks.",
+          resval: "0"
+        },
+        { bits:   "15:8",
+          name:   "MATCH_IBI_ID",
+          desc:   "Match IBI Target Address.",
+          resval: "0"
+        }
+      ]
+    },
+    // The following three registers are described as read only in the HCI specification,
+    // although they are also described as 'only present for Host Controllers that support direct
+    // access to Host system memory.'
+    { name:     "DEV_CTX_BASE_LO",
+      desc:     "Device Context Base Address Low.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31:0",
+          name:   "BASE_LO",
+          desc:   "Device Context Base Low.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "DEV_CTX_BASE_HI",
+      desc:     "Device Context Base Address High.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31:0",
+          name:   "BASE_HI",
+          desc:   "Device Context Base High.",
+          resval: "0"
+        }
+      ]
+    },
+    { name:     "DEV_CTX_SG",
+      desc:     "Device Contxt Scatter-Gather Support.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "31",
+          name:   "BLP",
+          desc:   "Buffer Vs. List Pointer.",
+          resval: "0"
+        },
+        { bits:   "15:0",
+          name:   "LIST_SIZE",
+          desc:   "List size.",
+          resval: "0"
+        }
+      ]
+    },
+    { skipto:   "0x200" },
+    { name:     "COMMAND_QUEUE_PORT",
+      desc:     "Write-only Command Descriptor queue.",
+      swaccess: "wo",
+      hwaccess: "hro",
+      hwext:    "true",
+      hwqe:     "true",
+      fields: [
+        { bits: "31:0",
+          name: "CMD_DATA",
+          desc: "Command Descriptor structure."
+        }
+      ]
+    }
+    { name:     "RESPONSE_QUEUE_PORT",
+      desc:     "Read-only Response Descriptor queue.",
+      swaccess: "ro",
+      hwaccess: "hrw",
+      hwext:    "true",
+      hwre:     "true",
+      fields: [
+        { bits: "31:0",
+          name: "RSP_DATA",
+          desc: "Response Descriptor structure."
+        }
+      ]
+    }
+    { window: {
+        name:       "XFER_DATA_PORT",
+        items:      "1",
+        validbits:  "32",
+        byte-write: "true",
+        unusual:    "false"
+        swaccess:   "rw",
+        desc:       "Read/write data transfer port."
+      },
+    }
+    { name:     "IBI_PORT",
+      desc:     "Read-only IBI queue.",
+      swaccess: "ro",
+      hwaccess: "hrw",
+      hwext:    "true",
+      hwqe:     "true",
+      hwre:     "true",
+      fields: [
+        { bits: "31:0",
+          name: "IBI_DATA",
+          desc: "IBI Status Descriptor and IBI Data words."
+        }
+      ]
+    }
+    { name:     "QUEUE_THLD_CTRL",
+      desc:     "Queue Threshold Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31:24",
+          name:   "IBI_STATUS_THLD",
+          desc:   "IBI Status Threshold.",
+          resval: "1"          
+        }
+        { bits:   "23:16",
+          name:   "IBI_DATA_SEGMENT_SIZE",
+          desc:   "IBI Data Segment Size.",
+          resval: "1"
+        }
+        { bits:   "15:8",
+          name:   "RESP_BUF_THLD",
+          desc:   "Response Ready Buffer Threshold.",
+          resval: "1"
+        }
+        { bits:   "7:0",
+          name:   "CMD_EMPTY_BUF_THLD",
+          desc:   "Command Ready Buffer Threshold.",
+          resval: "1"
+        }
+      ]
+    }
+    { name:     "DATA_BUFFER_THLD_CTRL",
+      desc:     "Transfer Data Buffer Threshold Control.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "26:24",
+          name:   "RX_START_THLD",
+          desc:   "Receive Start Threshold in DWORDs.",
+          resval: "1"
+        },
+        { bits:   "18:16",
+          name:   "TX_START_THLD",
+          desc:   "Transmit (Transfer) Start Threshold in DWORDs.",
+          resval: "1"
+        },
+        { bits:   "10:8",
+          name:   "RX_BUF_THLD",
+          desc:   "Receive Buffer Threshold.",
+          resval: "1"
+        }
+        { bits:   "2:0",
+          name:   "TX_BUF_THLD",
+          desc:   "Transmit Buffer Threshold.",
+          resval: "1"
+        }          
+      ]
+    }
+    { name:     "QUEUE_SIZE",
+      desc:     "Queue Size.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:   "true",
+      fields: [
+        { bits:   "31:24",
+          name:   "TX_DATA_BUFFER_SIZE",
+          desc:   "Transmit Data Buffer Size.",
+          resval: "6"
+        }
+        { bits:   "23:16",
+          name:   "RX_DATA_BUFFER_SIZE",
+          desc:   "Receive Data Buffer Size.",
+          resval: "6"
+        }
+        { bits:   "15:8",
+          name:   "IBI_STATUS_SIZE",
+          desc:   "IBI Queue Size.",
+          resval: "8"
+        }
+        { bits:   "7:0",
+          name:   "CR_QUEUE_SIZE",
+          desc:   "Command/Response Queue Size.",
+          resval: "8"
+        }
+      ]
+    }
+    { name:     "ALT_QUEUE_SIZE",
+      desc:     "Alternate Queue Size.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "28",
+          name:   "EXT_IBI_QUEUE_EN",
+          desc:   "Extended IBI Queue Size."
+          resval: "0"
+        }
+        { bits:   "24",
+          name:   "ALT_RESP_QUEUE_EN",
+          desc:   "Alternate Response Queue."
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "ALT_RESP_QUEUE_SIZE",
+          desc:   "Alternate Response Queue Size."
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "PIO_INTR_STATUS",
+      desc:     "PIO Interrupt Status.",
+      swaccess: "ro",
+      hwaccess: "hrw",
+      fields: [
+        { bits:     "9",
+          name:     "TRANSFER_ERR_STAT",
+          desc:     "Transfer Error Status.",
+          swaccess: "rw1c",
+          resval:   "0"
+        }
+        { bits:     "5",
+          name:     "TRANSFER_ABORT_STAT",
+          desc:     "Transfer Abort Status.",
+          swaccess: "rw1c",
+          resval:   "0"
+        }
+        { bits:   "4",
+          name:   "RESP_READY_STAT",
+          desc:   "Response Ready Status.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "CMD_QUEUE_READY_STAT",
+          desc:   "Command Queue Ready Status.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "IBI_STATUS_THLD_STAT",
+          desc:   "IBI Status Threshold Status.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "RX_THLD_STAT",
+          desc:   "Rx Data Buffer Threshold Status.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "TX_THLD_STAT",
+          desc:   "Tx Data Buffer Threshold Status.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "PIO_INTR_STATUS_ENABLE",
+      desc:     "PIO Interrupt Status Enable.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9",
+          name:   "TRANSFER_ERR_STAT_EN",
+          desc:   "Transfer Error Status Enable.",
+          resval: "0"
+        }
+        { bits:   "5",
+          name:   "TRANSFER_ABORT_STAT_EN",
+          desc:   "Transfer Abort Status Enable.",
+          resval: "0"
+        }
+        { bits:   "4",
+          name:   "RESP_READY_STAT_EN",
+          desc:   "Response Ready Status Enable.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "CMD_QUEUE_READY_STAT_EN",
+          desc:   "Command Queue Ready Status Enable.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "IBI_STATUS_THLD_STAT_EN",
+          desc:   "IBI Status Threshold Status Enable.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "RX_THLD_STAT_EN",
+          desc:   "Rx Data Buffer Threshold Status Enable.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "TX_THLD_STAT_EN",
+          desc:   "Tx Data Buffer Threshold Status Enable.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "PIO_INTR_SIGNAL_ENABLE",
+      desc:     "PIO Interrupt Signal Enable.",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9",
+          name:   "TRANSFER_ERR_SIGNAL_EN",
+          desc:   "Transfer Error Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "5",
+          name:   "TRANSFER_ABORT_SIGNAL_EN",
+          desc:   "Transfer Abort Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "4",
+          name:   "RESP_READY_SIGNAL_EN",
+          desc:   "Response Ready Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "CMD_QUEUE_READY_SIGNAL_EN",
+          desc:   "Command Queue Ready Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "IBI_STATUS_THLD_SIGNAL_EN",
+          desc:   "IBI Status Threshold Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "RX_THLD_SIGNAL_EN",
+          desc:   "Rx Data Buffer Threshold Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "TX_THLD_SIGNAL_EN",
+          desc:   "Tx Data Buffer Threshold Signal Enable.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "PIO_INTR_FORCE",
+      desc:     "PIO Interrupt Force.",
+      swaccess: "wo",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "9",
+          name:   "TRANSFER_ERR_FORCE",
+          desc:   "Force Transfer Error.",
+          resval: "0"
+        }
+        { bits:   "5",
+          name:   "TRANSFER_ABORT_FORCE",
+          desc:   "Force Transfer Abort.",
+          resval: "0"
+        }
+        { bits:   "4",
+          name:   "RESP_READY_FORCE",
+          desc:   "Force Response Ready.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "CMD_QUEUE_READY_FORCE",
+          desc:   "Force Command Queue Ready.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "IBI_THLD_FORCE",
+          desc:   "Force IBI Status Threshold.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "RX_THLD_FORCE",
+          desc:   "Force Rx Data Buffer Threshold.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "TX_THLD_FORCE",
+          desc:   "Force Tx Data Buffer Threshold.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_EXTCAP_HEADER",
+      desc:     "Standby Controller Extended Capability Header",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "23:8",
+          name:   "CAP_LENGTH",
+          desc:   "Capability Structure Length in DWORDs.",
+          // TODO:
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "CAP_ID",
+          desc:   "Extended Capability ID",
+          resval: "0x12"
+        }
+      ]
+    }
+    { name:     "STBY_CR_CONTROL",
+      desc:     "Standby Controller Control",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31:30",
+          name:   "STBY_CR_ENABLE_INIT",
+          desc:   "Host Controller Secondary Controller Enable.",
+          resval: "0"
+        }
+        { bits:   "20",
+          name:   "RSTACT_DEFBYTE_02",
+          desc:   "RSTACT Support DefByte 0x02",
+          resval: "0"
+        }
+        // TODO: The following 4 fields are billed as R/cW.
+        { bits:   "15",
+          name:   "DAA_ENTDAA_ENABLE",
+          desc:   "Dynamic Address Method Enable.",
+          resval: "0"
+        }
+        { bits:   "14",
+          name:   "DAA_SETDASA_ENABLE",
+          desc:   "Dynamic Address Method Enable.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "DAA_SETAASA_ENABLE",
+          desc:   "Dynamic Address Method Enable.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "TARGET_XACT_ENABLE",
+          desc:   "Target Transaction Interface Servicing Enable.",
+          resval: "1"
+        }
+        { bits:   "10:8",
+          name:   "BCAST_CCC_IBI_RING",
+          desc:   "Ring Bundle IBI Selector for Broadcast CCC Capture.",
+          resval: "0"
+        }
+        { bits:   "5",
+          name:   "CR_REQUEST_SEND",
+          desc:   "Send Controller Role Request.",
+          resval: "0"
+        }
+        { bits:   "4",
+          name:   "HANDOFF_DEEP_SLEEP",
+          desc:   "Handoff Deep Sleep.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "PRIME_ACCEPT_GETACCR",
+          desc:   "Prime to Accept Controller Role.",
+          resval: "1"
+        }
+        { bits:   "2",
+          name:   "ACR_FSM_OP_SELECT",
+          desc:   "Active Controller Select.",
+          resval: "1"
+        }
+        { bits:   "1",
+          name:   "HANDOFF_DELAY_NACK",
+          desc:   "Handoff Delay NACK.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "PENDING_RX_NACK",
+          desc:   "Pending RX NACK.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_DEVICE_ADDR",
+      desc:     "Standby Controller Device Address",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31",
+          name:   "DYNAMIC_ADDR_VALID",
+          desc:   "Dynamic Address is Valid.",
+          resval: "0"
+        }
+        { bits:   "22:16",
+          name:   "DYNAMIC_ADDR",
+          desc:   "Device Dynamic Address.",
+          resval: "0"
+        }
+        { bits:   "15",
+          name:   "STATIC_ADDR_VALID",
+          desc:   "Static Addres is Valid.",
+          resval: "0"
+        }
+        { bits:   "6:0",
+          name:   "STATIC_ADDR",
+          desc:   "Device Static Address.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_CAPABILITIES",
+      desc:     "Standby Controller Capabilities",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      fields: [
+        { bits:   "15",
+          name:   "DAA_ENTDAA_SUPPORT",
+          desc:   "Dynamic Address Assignment with ENTDAA is supported.",
+          resval: "1"
+        }
+        { bits:   "14",
+          name:   "DAA_SETDASA_SUPPORT",
+          desc:   "Dynamic Address Assignment with SETDASA is supported.",
+          resval: "1"
+        }
+        { bits:   "13",
+          name:   "DAA_SETAASA_SUPPORT",
+          desc:   "Dynamic Address Assignment with SETAASA is supported.",
+          resval: "1"
+        }
+        { bits:   "12",
+          name:   "TARGET_XACT_SUPPORT",
+          desc:   "I3C Target Transaction Interface is supported.",
+          resval: "1"
+        }
+        { bits:   "5",
+          name:   "SIMPLE_CRR_SUPPORT",
+          desc:   "Simple Controller Role Request is supported.",
+          resval: "1"
+        }
+      ]
+    }
+    { name:     "STBY_CR_STATUS",
+      desc:     "Standby Controller Status",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "8",
+          name:   "HJ_REQ_STATUS",
+          desc:   "Hot-Join Request Status.",
+          resval: "0"
+        }
+        { bits:   "7:5",
+          name:   "SIMPLE_CRR_STATUS",
+          desc:   "Simple Controller Role Request Status.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "AC_CURRENT_OWN",
+          desc:   "Active Controller.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_DEVICE_CHAR",
+      desc:     "Standby Controller Device Characteristics",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:     "31:29",
+          name:     "BCR_FIXED",
+          desc:     "Bus Characteristics Register Fixed.",
+          swaccess: "ro",
+          resval:   "3"
+        }
+        { bits:   "28:24",
+          name:   "BCR_VAR",
+          desc:   "Bus Characteristics Register Variable.",
+          resval: "0"
+        }
+        { bits:   "23:16",
+          name:   "DCR",
+          desc:   "Device Characteristics Register.",
+          resval: "0"
+        }
+        { bits:   "15:1",
+          name:   "PID_HI",
+          desc:   "Device Provisional ID High.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_DEVICE_PID_LO",
+      desc:     "Standby Controller PID Low",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31:0",
+          name:   "PID_LO",
+          desc:   "Device Provisional ID Low.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_INTR_STATUS",
+      desc:     "Standby Controller Interrupt Status",
+      swaccess: "rw",
+      hwaccess: "hrw",
+      fields: [
+        { bits:   "19",
+          name:   "CCC_FATAL_RSTDAA_ERR_STAT",
+          desc:   "CCC Fatal RSTDAA Error Status.",
+          resval: "0"
+        }
+        { bits:   "18",
+          name:   "CCC_UNHANDLED_NACK_STAT",
+          desc:   "CCC Unhandled NACK Status.",
+          resval: "0"
+        }
+        { bits:   "17",
+          name:   "CCC_PARAM_MODIFIED_STAT",
+          desc:   "CCC Parameter Modified Status.",
+          resval: "0"
+        }
+        { bits:   "16",
+          name:   "STBY_CR_OP_RSTACT_STAT",
+          desc:   "Secondary Controller Operation Reset Action.",
+          resval: "0"
+        }
+        { bits:   "14",
+          name:   "STBY_CR_ACCEPT_ERR_STAT",
+          desc:   "Secondary Controller Transition Error Status.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "STBY_CR_ACCEPT_OK_STAT",
+          desc:   "Secondary Controller Transition OK Status.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "STBY_CR_ACCEPT_NACKED_STAT",
+          desc:   "Secondary Controller Transition NACKed.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "STBY_CR_DYN_ADDR_STAT",
+          desc:   "Secondary Controller Dynamic Address Status.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "CRR_RESPONSE_STAT",
+          desc:   "Controller Role Request Response Status.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "ACR_HANDOFF_ERR_M3_STAT",
+          desc:   "Controller Role Handoff Error Type CE3 Recovery.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "ACR_HANDOFF_ERR_FAIL_STAT",
+          desc:   "Controller Role Handoff Error Due To Failure.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "ACR_HANDOFF_OK_PRIMED_STAT",
+          desc:   "Controller Role Handoff OK and Primed to Accept.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "ACR_HANDOFF_OK_REMAIN_STAT",
+          desc:   "Controller Role Handoff OK and Will Remain Secondary Controller.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_INTR_SIGNAL_ENABLE",
+      desc:     "Standby Controller Interrupt Signal Enable",
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "19",
+          name:   "CCC_FATAL_RSTDAA_ERR_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "1"
+        }
+        { bits:   "18",
+          name:   "CCC_UNHANDLED_NACK_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "1"
+        }
+        { bits:   "17",
+          name:   "CCC_PARAM_MODIFIED_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0",
+        }
+        { bits:   "16",
+          name:   "STBY_CR_OP_RSTACT_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "14",
+          name:   "STBY_CR_ACCEPT_ERR_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "STBY_CR_ACCEPT_OK_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "STBY_CR_ACCEPT_NACKED_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "STBY_CR_DYN_ADDR_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "CRR_RESPONSE_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "3",
+          name:   "ACR_HANDOFF_ERR_M3_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "2",
+          name:   "ACR_HANDOFF_ERR_FAIL_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "ACR_HANDOFF_OK_PRIMED_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+        { bits:   "0",
+          name:   "ACR_HANDOFF_OK_REMAIN_SIGNAL_EN",
+          desc:   "Standby Controller Interrupt Signal Enable.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_INTR_FORCE",
+      desc:     "Standby Controller Interrupt Force",
+      swaccess: "wo",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "19",
+          name:   "CCC_FATAL_RSTDAA_ERR_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "18",
+          name:   "CCC_UNHANDLED_NACK_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "17",
+          name:   "CCC_PARAM_MODIFIED_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "16",
+          name:   "STBY_CR_OP_RSTACT_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "14",
+          name:   "STBY_CR_ACCEPT_ERR_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "13",
+          name:   "STBY_CR_ACCEPT_OK_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "12",
+          name:   "STBY_CR_ACCEPT_NACKED_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "11",
+          name:   "STBY_CR_DYN_ADDR_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+        { bits:   "10",
+          name:   "CRR_RESPONSE_FORCE",
+          desc:   "Standby Controller Interrupt Force.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_CCC_CONFIG_GETCAPS",
+      desc:     "Standby Controller CCC Auto-Response Config Get Capabilities",
+      // TODO: Billed as R/cW.
+      swaccess: "rw",
+      hwaccess: "hwo",
+      fields: [
+        { bits:   "4",
+          name:   "F2_CRCAP2_DEV_INTERACT",
+          desc:   "GETCAPS CCC CRCAPS Byte 2.",
+          resval: "0"
+        }
+        { bits:   "2:0",
+          name:   "F2_CRCAP1_BUS_CONFIG",
+          desc:   "GETCAPS CCC CRCAPS Byte 1.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "STBY_CR_CCC_CONFIG_RSTACT_PARAMS",
+      desc:     "Standby Controller CCC Auto-Response Config Get Capabilities",
+      // TODO: Billed as R/cW mostly.
+      swaccess: "rw",
+      hwaccess: "hro",
+      fields: [
+        { bits:   "31",
+          name:   "RESET_DYNAMIC_ADDR",
+          desc:   "Reset Dynamic Address After Target Reset.",
+          resval: "1"
+        }
+        { bits:   "23:16",
+          name:   "RESET_TIME_TARGET",
+          desc:   "Time to Reset Target.",
+          resval: "0"
+        }
+        { bits:   "15:8",
+          name:   "RESET_TIME_PERIPHERAL",
+          desc:   "Time to Reset Peripheral.",
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "RST_ACTION",
+          desc:   "Defining Byte of the RSTACT CCC.",
+          resval: "0"
+        }
+      ]
+    }
+    { window: {
+        name:       "DAT",
+        items:      "NumDATWords",
+        validbits:  "32",
+        unusual:    "false",
+        byte-write: "false",
+        swaccess:   "rw",
+        desc:       "Device Address Table."
+      }
+    }
+    { window: {
+        name:       "DCT",
+        items:      "NumDCTWords",
+        validbits:  "32",
+        byte-write: "false",
+        unusual:    "false",
+        swaccess:   "rw",
+        desc:       "Device Characteristics Table."
+      }
+    }
+    { window: {
+        name: "BUFFER",
+        items: "512",
+        validbits: "32",
+        byte-write: "true",
+        unusual: "false"
+        swaccess: "rw",
+        desc: '''Software-managed 2KiB message buffer used for transmitting and receiving messages.
+              '''
+      }
+    }
+  ]
+}
