@@ -15,6 +15,11 @@ filesets:
       - lowrisc:ip:i3c_pkg
       - lowrisc:virtual_constants:top_racl_pkg
     files:
+      - rtl/clock_inv_en.sv
+      - rtl/buf_inv_en.sv
+      - rtl/buf_en.sv
+      - rtl/i3c_phy.sv
+      - rtl/i3c_sync_data.sv
       - rtl/i3c_patt_detector.sv
       - rtl/i3c_buffer.sv
       - rtl/i3c_target_trx.sv
@@ -22,6 +27,9 @@ filesets:
       - rtl/i3c_dxt.sv
       - rtl/i3c_controller_trx.sv
       - rtl/i3c_controller.sv
+      - rtl/i3c_intr.sv
+      - rtl/i3c_timer.sv
+      - rtl/i3c_input_buffers.sv
       - rtl/i3c_reg_pkg.sv
       - rtl/i3c_reg_top.sv
       - rtl/i3c_core.sv

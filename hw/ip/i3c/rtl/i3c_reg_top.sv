@@ -67,9 +67,9 @@ module i3c_reg_top
 
   // also check for spurious write enables
   logic reg_we_err;
-  logic [66:0] reg_we_check;
+  logic [72:0] reg_we_check;
   prim_reg_we_check #(
-    .OneHotWidth(67)
+    .OneHotWidth(73)
   ) u_prim_reg_we_check (
     .clk_i(clk_i),
     .rst_ni(rst_ni),
@@ -539,6 +539,7 @@ module i3c_reg_top
   logic [6:0] stby_cr_device_addr_dynamic_addr_wd;
   logic stby_cr_device_addr_dynamic_addr_valid_qs;
   logic stby_cr_device_addr_dynamic_addr_valid_wd;
+  logic stby_cr_capabilities_re;
   logic stby_cr_capabilities_simple_crr_support_qs;
   logic stby_cr_capabilities_target_xact_support_qs;
   logic stby_cr_capabilities_daa_setaasa_support_qs;
@@ -626,6 +627,7 @@ module i3c_reg_top
   logic stby_cr_intr_force_ccc_param_modified_force_wd;
   logic stby_cr_intr_force_ccc_unhandled_nack_force_wd;
   logic stby_cr_intr_force_ccc_fatal_rstdaa_err_force_wd;
+  logic stby_cr_ccc_config_getcaps_re;
   logic stby_cr_ccc_config_getcaps_we;
   logic [2:0] stby_cr_ccc_config_getcaps_f2_crcap1_bus_config_qs;
   logic [2:0] stby_cr_ccc_config_getcaps_f2_crcap1_bus_config_wd;
@@ -640,6 +642,32 @@ module i3c_reg_top
   logic [7:0] stby_cr_ccc_config_rstact_params_reset_time_target_wd;
   logic stby_cr_ccc_config_rstact_params_reset_dynamic_addr_qs;
   logic stby_cr_ccc_config_rstact_params_reset_dynamic_addr_wd;
+  logic debug_extcap_header_re;
+  logic [7:0] debug_extcap_header_cap_id_qs;
+  logic [15:0] debug_extcap_header_cap_length_qs;
+  logic queue_status_level_re;
+  logic [7:0] queue_status_level_cmd_queue_free_lvl_qs;
+  logic [7:0] queue_status_level_response_buffer_lvl_qs;
+  logic [7:0] queue_status_level_ibi_buffer_lvl_qs;
+  logic [4:0] queue_status_level_ibi_status_cnt_qs;
+  logic data_buffer_status_level_re;
+  logic [7:0] data_buffer_status_level_tx_buf_free_lvl_qs;
+  logic [7:0] data_buffer_status_level_rx_buf_lvl_qs;
+  logic present_state_debug_re;
+  logic present_state_debug_scl_line_signal_level_qs;
+  logic present_state_debug_sda_line_signal_level_qs;
+  logic [5:0] present_state_debug_bcl_tfr_status_qs;
+  logic [5:0] present_state_debug_bcl_tfr_st_status_qs;
+  logic [3:0] present_state_debug_cmd_tid_qs;
+  logic mx_error_counters_re;
+  logic [7:0] mx_error_counters_qs;
+  logic sched_cmds_debug_re;
+  logic [3:0] sched_cmds_debug_sched_handler_qs;
+  logic [2:0] sched_cmds_debug_inst_id_qs;
+  logic sched_cmds_debug_err_type_qs;
+  logic [7:0] sched_cmds_debug_entity_id_qs;
+  logic [4:0] sched_cmds_debug_tick_interval_qs;
+  logic sched_cmds_debug_err_occurred_qs;
 
   // Register instances
   // R[intr_state]: V(False)
@@ -5044,139 +5072,79 @@ module i3c_reg_top
   );
 
 
-  // R[stby_cr_capabilities]: V(False)
+  // R[stby_cr_capabilities]: V(True)
   //   F[simple_crr_support]: 5:5
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRO),
-    .RESVAL  (1'h1),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_capabilities_simple_crr_support (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_capabilities_re),
     .we     (1'b0),
     .wd     ('0),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_capabilities.simple_crr_support.de),
     .d      (hw2reg.stby_cr_capabilities.simple_crr_support.d),
-
-    // to internal hardware
+    .qre    (),
     .qe     (),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_capabilities_simple_crr_support_qs)
   );
 
   //   F[target_xact_support]: 12:12
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRO),
-    .RESVAL  (1'h1),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_capabilities_target_xact_support (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_capabilities_re),
     .we     (1'b0),
     .wd     ('0),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_capabilities.target_xact_support.de),
     .d      (hw2reg.stby_cr_capabilities.target_xact_support.d),
-
-    // to internal hardware
+    .qre    (),
     .qe     (),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_capabilities_target_xact_support_qs)
   );
 
   //   F[daa_setaasa_support]: 13:13
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRO),
-    .RESVAL  (1'h1),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_capabilities_daa_setaasa_support (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_capabilities_re),
     .we     (1'b0),
     .wd     ('0),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_capabilities.daa_setaasa_support.de),
     .d      (hw2reg.stby_cr_capabilities.daa_setaasa_support.d),
-
-    // to internal hardware
+    .qre    (),
     .qe     (),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_capabilities_daa_setaasa_support_qs)
   );
 
   //   F[daa_setdasa_support]: 14:14
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRO),
-    .RESVAL  (1'h1),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_capabilities_daa_setdasa_support (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_capabilities_re),
     .we     (1'b0),
     .wd     ('0),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_capabilities.daa_setdasa_support.de),
     .d      (hw2reg.stby_cr_capabilities.daa_setdasa_support.d),
-
-    // to internal hardware
+    .qre    (),
     .qe     (),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_capabilities_daa_setdasa_support_qs)
   );
 
   //   F[daa_entdaa_support]: 15:15
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRO),
-    .RESVAL  (1'h1),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_capabilities_daa_entdaa_support (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_capabilities_re),
     .we     (1'b0),
     .wd     ('0),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_capabilities.daa_entdaa_support.de),
     .d      (hw2reg.stby_cr_capabilities.daa_entdaa_support.d),
-
-    // to internal hardware
+    .qre    (),
     .qe     (),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_capabilities_daa_entdaa_support_qs)
   );
 
@@ -6353,58 +6321,37 @@ module i3c_reg_top
   );
 
 
-  // R[stby_cr_ccc_config_getcaps]: V(False)
+  // R[stby_cr_ccc_config_getcaps]: V(True)
+  logic stby_cr_ccc_config_getcaps_qe;
+  logic [1:0] stby_cr_ccc_config_getcaps_flds_we;
+  assign stby_cr_ccc_config_getcaps_qe = &stby_cr_ccc_config_getcaps_flds_we;
   //   F[f2_crcap1_bus_config]: 2:0
-  prim_subreg #(
-    .DW      (3),
-    .SwAccess(prim_subreg_pkg::SwAccessRW),
-    .RESVAL  (3'h0),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (3)
   ) u_stby_cr_ccc_config_getcaps_f2_crcap1_bus_config (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_ccc_config_getcaps_re),
     .we     (stby_cr_ccc_config_getcaps_we),
     .wd     (stby_cr_ccc_config_getcaps_f2_crcap1_bus_config_wd),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_ccc_config_getcaps.f2_crcap1_bus_config.de),
     .d      (hw2reg.stby_cr_ccc_config_getcaps.f2_crcap1_bus_config.d),
-
-    // to internal hardware
-    .qe     (),
+    .qre    (),
+    .qe     (stby_cr_ccc_config_getcaps_flds_we[0]),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_ccc_config_getcaps_f2_crcap1_bus_config_qs)
   );
 
   //   F[f2_crcap2_dev_interact]: 4:4
-  prim_subreg #(
-    .DW      (1),
-    .SwAccess(prim_subreg_pkg::SwAccessRW),
-    .RESVAL  (1'h0),
-    .Mubi    (1'b0)
+  prim_subreg_ext #(
+    .DW    (1)
   ) u_stby_cr_ccc_config_getcaps_f2_crcap2_dev_interact (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-
-    // from register interface
+    .re     (stby_cr_ccc_config_getcaps_re),
     .we     (stby_cr_ccc_config_getcaps_we),
     .wd     (stby_cr_ccc_config_getcaps_f2_crcap2_dev_interact_wd),
-
-    // from internal hardware
-    .de     (hw2reg.stby_cr_ccc_config_getcaps.f2_crcap2_dev_interact.de),
     .d      (hw2reg.stby_cr_ccc_config_getcaps.f2_crcap2_dev_interact.d),
-
-    // to internal hardware
-    .qe     (),
+    .qre    (),
+    .qe     (stby_cr_ccc_config_getcaps_flds_we[1]),
     .q      (),
     .ds     (),
-
-    // to register interface (read)
     .qs     (stby_cr_ccc_config_getcaps_f2_crcap2_dev_interact_qs)
   );
 
@@ -6519,13 +6466,324 @@ module i3c_reg_top
   );
 
 
+  // R[debug_extcap_header]: V(True)
+  //   F[cap_id]: 7:0
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_debug_extcap_header_cap_id (
+    .re     (debug_extcap_header_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.debug_extcap_header.cap_id.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (debug_extcap_header_cap_id_qs)
+  );
 
-  logic [66:0] addr_hit;
+  //   F[cap_length]: 23:8
+  prim_subreg_ext #(
+    .DW    (16)
+  ) u_debug_extcap_header_cap_length (
+    .re     (debug_extcap_header_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.debug_extcap_header.cap_length.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (debug_extcap_header_cap_length_qs)
+  );
+
+
+  // R[queue_status_level]: V(True)
+  //   F[cmd_queue_free_lvl]: 7:0
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_queue_status_level_cmd_queue_free_lvl (
+    .re     (queue_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.queue_status_level.cmd_queue_free_lvl.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (queue_status_level_cmd_queue_free_lvl_qs)
+  );
+
+  //   F[response_buffer_lvl]: 15:8
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_queue_status_level_response_buffer_lvl (
+    .re     (queue_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.queue_status_level.response_buffer_lvl.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (queue_status_level_response_buffer_lvl_qs)
+  );
+
+  //   F[ibi_buffer_lvl]: 23:16
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_queue_status_level_ibi_buffer_lvl (
+    .re     (queue_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.queue_status_level.ibi_buffer_lvl.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (queue_status_level_ibi_buffer_lvl_qs)
+  );
+
+  //   F[ibi_status_cnt]: 28:24
+  prim_subreg_ext #(
+    .DW    (5)
+  ) u_queue_status_level_ibi_status_cnt (
+    .re     (queue_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.queue_status_level.ibi_status_cnt.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (queue_status_level_ibi_status_cnt_qs)
+  );
+
+
+  // R[data_buffer_status_level]: V(True)
+  //   F[tx_buf_free_lvl]: 7:0
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_data_buffer_status_level_tx_buf_free_lvl (
+    .re     (data_buffer_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.data_buffer_status_level.tx_buf_free_lvl.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (data_buffer_status_level_tx_buf_free_lvl_qs)
+  );
+
+  //   F[rx_buf_lvl]: 15:8
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_data_buffer_status_level_rx_buf_lvl (
+    .re     (data_buffer_status_level_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.data_buffer_status_level.rx_buf_lvl.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (data_buffer_status_level_rx_buf_lvl_qs)
+  );
+
+
+  // R[present_state_debug]: V(True)
+  //   F[scl_line_signal_level]: 0:0
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_present_state_debug_scl_line_signal_level (
+    .re     (present_state_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.present_state_debug.scl_line_signal_level.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (present_state_debug_scl_line_signal_level_qs)
+  );
+
+  //   F[sda_line_signal_level]: 1:1
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_present_state_debug_sda_line_signal_level (
+    .re     (present_state_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.present_state_debug.sda_line_signal_level.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (present_state_debug_sda_line_signal_level_qs)
+  );
+
+  //   F[bcl_tfr_status]: 13:8
+  prim_subreg_ext #(
+    .DW    (6)
+  ) u_present_state_debug_bcl_tfr_status (
+    .re     (present_state_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.present_state_debug.bcl_tfr_status.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (present_state_debug_bcl_tfr_status_qs)
+  );
+
+  //   F[bcl_tfr_st_status]: 21:16
+  prim_subreg_ext #(
+    .DW    (6)
+  ) u_present_state_debug_bcl_tfr_st_status (
+    .re     (present_state_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.present_state_debug.bcl_tfr_st_status.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (present_state_debug_bcl_tfr_st_status_qs)
+  );
+
+  //   F[cmd_tid]: 27:24
+  prim_subreg_ext #(
+    .DW    (4)
+  ) u_present_state_debug_cmd_tid (
+    .re     (present_state_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.present_state_debug.cmd_tid.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (present_state_debug_cmd_tid_qs)
+  );
+
+
+  // R[mx_error_counters]: V(True)
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_mx_error_counters (
+    .re     (mx_error_counters_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.mx_error_counters.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (mx_error_counters_qs)
+  );
+
+
+  // R[sched_cmds_debug]: V(True)
+  //   F[sched_handler]: 3:0
+  prim_subreg_ext #(
+    .DW    (4)
+  ) u_sched_cmds_debug_sched_handler (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.sched_handler.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_sched_handler_qs)
+  );
+
+  //   F[inst_id]: 6:4
+  prim_subreg_ext #(
+    .DW    (3)
+  ) u_sched_cmds_debug_inst_id (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.inst_id.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_inst_id_qs)
+  );
+
+  //   F[err_type]: 7:7
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_sched_cmds_debug_err_type (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.err_type.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_err_type_qs)
+  );
+
+  //   F[entity_id]: 15:8
+  prim_subreg_ext #(
+    .DW    (8)
+  ) u_sched_cmds_debug_entity_id (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.entity_id.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_entity_id_qs)
+  );
+
+  //   F[tick_interval]: 20:16
+  prim_subreg_ext #(
+    .DW    (5)
+  ) u_sched_cmds_debug_tick_interval (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.tick_interval.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_tick_interval_qs)
+  );
+
+  //   F[err_occurred]: 21:21
+  prim_subreg_ext #(
+    .DW    (1)
+  ) u_sched_cmds_debug_err_occurred (
+    .re     (sched_cmds_debug_re),
+    .we     (1'b0),
+    .wd     ('0),
+    .d      (hw2reg.sched_cmds_debug.err_occurred.d),
+    .qre    (),
+    .qe     (),
+    .q      (),
+    .ds     (),
+    .qs     (sched_cmds_debug_err_occurred_qs)
+  );
+
+
+
+  logic [72:0] addr_hit;
   top_racl_pkg::racl_role_vec_t racl_role_vec;
   top_racl_pkg::racl_role_t racl_role;
 
-  logic [66:0] racl_addr_hit_read;
-  logic [66:0] racl_addr_hit_write;
+  logic [72:0] racl_addr_hit_read;
+  logic [72:0] racl_addr_hit_write;
 
   if (EnableRacl) begin : gen_racl_role_logic
     // Retrieve RACL role from user bits and one-hot encode that for the comparison bitmap
@@ -6613,9 +6871,15 @@ module i3c_reg_top
     addr_hit[64] = (reg_addr == I3C_STBY_CR_INTR_FORCE_OFFSET);
     addr_hit[65] = (reg_addr == I3C_STBY_CR_CCC_CONFIG_GETCAPS_OFFSET);
     addr_hit[66] = (reg_addr == I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS_OFFSET);
+    addr_hit[67] = (reg_addr == I3C_DEBUG_EXTCAP_HEADER_OFFSET);
+    addr_hit[68] = (reg_addr == I3C_QUEUE_STATUS_LEVEL_OFFSET);
+    addr_hit[69] = (reg_addr == I3C_DATA_BUFFER_STATUS_LEVEL_OFFSET);
+    addr_hit[70] = (reg_addr == I3C_PRESENT_STATE_DEBUG_OFFSET);
+    addr_hit[71] = (reg_addr == I3C_MX_ERROR_COUNTERS_OFFSET);
+    addr_hit[72] = (reg_addr == I3C_SCHED_CMDS_DEBUG_OFFSET);
 
     if (EnableRacl) begin : gen_racl_hit
-      for (int unsigned slice_idx = 0; slice_idx < 67; slice_idx++) begin
+      for (int unsigned slice_idx = 0; slice_idx < 73; slice_idx++) begin
         racl_addr_hit_read[slice_idx] =
             addr_hit[slice_idx] & (|(racl_policies_i[RaclPolicySelVec[slice_idx]].read_perm
                                       & racl_role_vec));
@@ -6714,7 +6978,13 @@ module i3c_reg_top
                (racl_addr_hit_write[63] & (|(I3C_PERMIT[63] & ~reg_be))) |
                (racl_addr_hit_write[64] & (|(I3C_PERMIT[64] & ~reg_be))) |
                (racl_addr_hit_write[65] & (|(I3C_PERMIT[65] & ~reg_be))) |
-               (racl_addr_hit_write[66] & (|(I3C_PERMIT[66] & ~reg_be)))));
+               (racl_addr_hit_write[66] & (|(I3C_PERMIT[66] & ~reg_be))) |
+               (racl_addr_hit_write[67] & (|(I3C_PERMIT[67] & ~reg_be))) |
+               (racl_addr_hit_write[68] & (|(I3C_PERMIT[68] & ~reg_be))) |
+               (racl_addr_hit_write[69] & (|(I3C_PERMIT[69] & ~reg_be))) |
+               (racl_addr_hit_write[70] & (|(I3C_PERMIT[70] & ~reg_be))) |
+               (racl_addr_hit_write[71] & (|(I3C_PERMIT[71] & ~reg_be))) |
+               (racl_addr_hit_write[72] & (|(I3C_PERMIT[72] & ~reg_be)))));
   end
 
   // Generate write-enables
@@ -7035,6 +7305,7 @@ module i3c_reg_top
   assign stby_cr_device_addr_dynamic_addr_wd = reg_wdata[22:16];
 
   assign stby_cr_device_addr_dynamic_addr_valid_wd = reg_wdata[31];
+  assign stby_cr_capabilities_re = racl_addr_hit_read[58] & reg_re & !reg_error;
   assign stby_cr_status_we = racl_addr_hit_write[59] & reg_we & !reg_error;
 
   assign stby_cr_status_ac_current_own_wd = reg_wdata[1];
@@ -7125,6 +7396,7 @@ module i3c_reg_top
   assign stby_cr_intr_force_ccc_unhandled_nack_force_wd = reg_wdata[18];
 
   assign stby_cr_intr_force_ccc_fatal_rstdaa_err_force_wd = reg_wdata[19];
+  assign stby_cr_ccc_config_getcaps_re = racl_addr_hit_read[65] & reg_re & !reg_error;
   assign stby_cr_ccc_config_getcaps_we = racl_addr_hit_write[65] & reg_we & !reg_error;
 
   assign stby_cr_ccc_config_getcaps_f2_crcap1_bus_config_wd = reg_wdata[2:0];
@@ -7139,6 +7411,12 @@ module i3c_reg_top
   assign stby_cr_ccc_config_rstact_params_reset_time_target_wd = reg_wdata[23:16];
 
   assign stby_cr_ccc_config_rstact_params_reset_dynamic_addr_wd = reg_wdata[31];
+  assign debug_extcap_header_re = racl_addr_hit_read[67] & reg_re & !reg_error;
+  assign queue_status_level_re = racl_addr_hit_read[68] & reg_re & !reg_error;
+  assign data_buffer_status_level_re = racl_addr_hit_read[69] & reg_re & !reg_error;
+  assign present_state_debug_re = racl_addr_hit_read[70] & reg_re & !reg_error;
+  assign mx_error_counters_re = racl_addr_hit_read[71] & reg_re & !reg_error;
+  assign sched_cmds_debug_re = racl_addr_hit_read[72] & reg_re & !reg_error;
 
   // Assign write-enables to checker logic vector.
   always_comb begin
@@ -7209,6 +7487,12 @@ module i3c_reg_top
     reg_we_check[64] = stby_cr_intr_force_we;
     reg_we_check[65] = stby_cr_ccc_config_getcaps_we;
     reg_we_check[66] = stby_cr_ccc_config_rstact_params_we;
+    reg_we_check[67] = 1'b0;
+    reg_we_check[68] = 1'b0;
+    reg_we_check[69] = 1'b0;
+    reg_we_check[70] = 1'b0;
+    reg_we_check[71] = 1'b0;
+    reg_we_check[72] = 1'b0;
   end
 
   // Read data return
@@ -7648,6 +7932,44 @@ module i3c_reg_top
         reg_rdata_next[15:8] = stby_cr_ccc_config_rstact_params_reset_time_peripheral_qs;
         reg_rdata_next[23:16] = stby_cr_ccc_config_rstact_params_reset_time_target_qs;
         reg_rdata_next[31] = stby_cr_ccc_config_rstact_params_reset_dynamic_addr_qs;
+      end
+
+      racl_addr_hit_read[67]: begin
+        reg_rdata_next[7:0] = debug_extcap_header_cap_id_qs;
+        reg_rdata_next[23:8] = debug_extcap_header_cap_length_qs;
+      end
+
+      racl_addr_hit_read[68]: begin
+        reg_rdata_next[7:0] = queue_status_level_cmd_queue_free_lvl_qs;
+        reg_rdata_next[15:8] = queue_status_level_response_buffer_lvl_qs;
+        reg_rdata_next[23:16] = queue_status_level_ibi_buffer_lvl_qs;
+        reg_rdata_next[28:24] = queue_status_level_ibi_status_cnt_qs;
+      end
+
+      racl_addr_hit_read[69]: begin
+        reg_rdata_next[7:0] = data_buffer_status_level_tx_buf_free_lvl_qs;
+        reg_rdata_next[15:8] = data_buffer_status_level_rx_buf_lvl_qs;
+      end
+
+      racl_addr_hit_read[70]: begin
+        reg_rdata_next[0] = present_state_debug_scl_line_signal_level_qs;
+        reg_rdata_next[1] = present_state_debug_sda_line_signal_level_qs;
+        reg_rdata_next[13:8] = present_state_debug_bcl_tfr_status_qs;
+        reg_rdata_next[21:16] = present_state_debug_bcl_tfr_st_status_qs;
+        reg_rdata_next[27:24] = present_state_debug_cmd_tid_qs;
+      end
+
+      racl_addr_hit_read[71]: begin
+        reg_rdata_next[7:0] = mx_error_counters_qs;
+      end
+
+      racl_addr_hit_read[72]: begin
+        reg_rdata_next[3:0] = sched_cmds_debug_sched_handler_qs;
+        reg_rdata_next[6:4] = sched_cmds_debug_inst_id_qs;
+        reg_rdata_next[7] = sched_cmds_debug_err_type_qs;
+        reg_rdata_next[15:8] = sched_cmds_debug_entity_id_qs;
+        reg_rdata_next[20:16] = sched_cmds_debug_tick_interval_qs;
+        reg_rdata_next[21] = sched_cmds_debug_err_occurred_qs;
       end
 
       default: begin

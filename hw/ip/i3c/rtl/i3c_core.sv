@@ -8,6 +8,7 @@ module i3c_core
   import prim_mubi_pkg::*;
   import prim_ram_1p_pkg::*;
 #(
+  parameter int unsigned ClkFreq     = 50_000_000,
   parameter int unsigned BufAddrW    = i3c_pkg::BufAddrW,
   parameter int unsigned DataWidth   = 32,
   parameter int unsigned NumSDALanes = 1,
@@ -114,9 +115,53 @@ module i3c_core
   input mubi4_t             scanmode_i
 );
 
+  // Number of target(s) or target group(s) presented simultaneously on the I3C bus, including the
+  // Secondary Controller Role.
+  localparam int unsigned NumTargets = i3c_pkg::NumTargets;
+
   // DFT-related signals.
   // TODO: sync?
   wire scanmode = prim_mubi_pkg::mubi4_test_true_strict(scanmode_i);
+
+  logic ctrl_enable, targ_enable, inbuf_enable;
+  // TODO: This will do for now.
+  assign inbuf_enable = targ_enable;
+
+  logic targ_scl_buf, targ_scl_buf_n;    // Posedge and negedge SCL clock signals.
+  logic targ_sda0_clk, targ_sda0_clk_n;  // Posedge and negedge SDA signals, suitable for clocking.
+  logic [NumSDALanes-1:0] targ_sda_buf;  // Buffered SDA lanes, to avoid SCL-relative skew.
+
+  // I3C input buffering; these buffers and inverters must exist in the 'Always On' domain for
+  // Target Reset detection during a deep sleep state.
+  i3c_input_buffers u_inbufs(
+    // Enable input propagates
+    .enable_i     (inbuf_enable),
+
+    // I3C target inputs.
+    .scl_i        (targ_scl_i),
+    .sda_i        (targ_sda_i),
+
+    // Clock signals.
+    .scl_buf_o    (targ_scl_buf),
+    .scl_buf_no   (targ_scl_buf_n),
+    .sda0_clk_o   (targ_sda0_clk),
+    .sda0_clk_no  (targ_sda0_clk_n),
+    // Buffered input data (SDA), to avoid SCL-relative skew.
+    .sda_buf_o    (targ_sda_buf),
+
+    // DFT-related signals.
+    .scan_clk_i   (scan_clk_i),
+    .scanmode_i   (scanmode)
+  );
+
+  // Synchronize the SCL and SDA signals to the IP block, to present them in the debug state.
+  prim_flop_2sync #(.Width(2)) u_sync(
+    .clk_i  (clk_i),
+    .rst_ni (rst_ni),
+    .d_i    ({ctrl_sda_i[0], ctrl_scl_i}),
+    .q_o    ({hw2reg.present_state_debug.sda_line_signal_level.d,
+              hw2reg.present_state_debug.scl_line_signal_level.d})
+  );
 
   // Interrupt signals.
   i3c_stby_cr_intr_t stby_cr_interrupts;
@@ -126,6 +171,12 @@ module i3c_core
   logic activate_patt_det;
   logic patt_det_active;
   logic hdr_mode;
+
+  // Bus timing.
+  logic rst_bus_avail, rst_bus_idle;
+  logic bus_avail, bus_idle;
+  assign rst_bus_avail = 1'b0;
+  assign rst_bus_idle  = 1'b0;
 
   // TODO: We shall probably need to delay activation in response to the target enable being
   // asserted until such a time that we can be sure that the bus is idle.
@@ -148,17 +199,14 @@ module i3c_core
   assign targ_sw_reset = reg2hw.ctrl.targ_reset.qe & reg2hw.ctrl.targ_reset.q;
 
   // TODO: Temporary, obviously
+  // Drop these and switch to HCI configuration register bits.
   assign ctrl_tx_enable = reg2hw.ctrl.ctrl_tx_en;
   assign ctrl_rx_enable = reg2hw.ctrl.ctrl_rx_en;
   assign targ_tx_enable = reg2hw.ctrl.targ_tx_en;
   assign targ_rx_enable = reg2hw.ctrl.targ_rx_en;
   assign ddr_enable = reg2hw.ctrl.hdr_ddr_en;
-
-  // Control signals from Controller logic.
-  logic gen_hdr_exit;
-  logic gen_hdr_sr;
-  assign gen_hdr_exit = 1'b0;
-  assign gen_hdr_sr = 1'b0;
+  assign ctrl_enable = ctrl_tx_enable | ctrl_rx_enable;
+  assign targ_enable = targ_tx_enable | targ_rx_enable;
 
   // Controller TX read access to the buffer.
   logic                   ctrl_txbuf_rd;
@@ -191,6 +239,12 @@ module i3c_core
 
   // Controller state signals.
   logic ac_current_own;
+
+  // Interface between controller logic and transceiver.
+  logic ctrl_trx_dvalid, ctrl_trx_dready;
+  logic ctrl_trx_rvalid;
+  i3c_ctrl_trx_req_t ctrl_trx_dreq;
+  i3c_ctrl_trx_rsp_t ctrl_trx_rsp;
 
   // Controller logic.
   i3c_controller #(
@@ -253,6 +307,37 @@ module i3c_core
     .intr_pio_o       (pio_interrupts),
     .intr_stby_cr_o   (stby_cr_interrupts),
 
+    // Buffer reading.
+    .buf_rd_o         (ctrl_txbuf_rd),
+    .buf_rdata_i      (ctrl_txbuf_rdata),
+    .buf_empty_i      (ctrl_txbuf_empty),
+
+    // Buffer writing.
+    .buf_wr_o         (ctrl_rxbuf_wr),
+    .buf_wmask_o      (ctrl_rxbuf_wmask),
+    .buf_wdata_o      (ctrl_rxbuf_wdata),
+
+    // Request to transceiver logic.
+    .trx_dvalid_o     (ctrl_trx_dvalid),
+    .trx_dready_i     (ctrl_trx_dready),
+    .trx_dreq_o       (ctrl_trx_dreq),
+
+    // Response from transceiver logic.
+    .trx_rvalid_i     (ctrl_trx_rvalid),
+    .trx_rsp_i        (ctrl_trx_rsp),
+
+    // Debug status information.
+    .ibi_status_cnt_o ({hw2reg.queue_status_level.ibi_status_cnt.d}),
+    .ibibuf_lvl_o     ({hw2reg.queue_status_level.ibi_buffer_lvl.d}),
+    .cmdq_free_lvl_o  ({hw2reg.queue_status_level.response_buffer_lvl.d}),
+    .rspbuf_lvl_o     ({hw2reg.queue_status_level.cmd_queue_free_lvl.d}),
+    .rxbuf_lvl_o      ({hw2reg.data_buffer_status_level.rx_buf_lvl.d}),
+    .txbuf_free_lvl_o ({hw2reg.data_buffer_status_level.tx_buf_free_lvl.d}),
+    .cmd_tid_o        ({hw2reg.present_state_debug.cmd_tid.d}),
+    .bcl_tfr_ststat_o ({hw2reg.present_state_debug.bcl_tfr_st_status.d}),
+    .bfl_tfr_status_o ({hw2reg.present_state_debug.bcl_tfr_status.d}),
+    .ce2_error_cnt_o  ({hw2reg.mx_error_counters.d}),
+
     // DFT-related signals.
     .dat_cfg_i        (dat_cfg_i),
     .dat_cfg_rsp_o    (dat_cfg_rsp_o),
@@ -260,22 +345,57 @@ module i3c_core
     .dct_cfg_rsp_o    (dct_cfg_rsp_o)
   );
 
+  // Interface between Target logic and transceiver.
+  // TODO: Decide whether this should per-target as presently, or per-command permitting
+  // the ratio of targets and commands to be adjusted.
+  logic              targ_trx_dvalid[NumTargets];
+  logic              targ_trx_dready[NumTargets];
+  i3c_targ_trx_req_t targ_trx_dreq[NumTargets];
+
+  logic targ_trx_rvalid;
+  i3c_targ_trx_rsp_t targ_trx_rsp;
+
   // Target logic.
-  i3c_target u_target (
+  i3c_target #(
+    .NumTargets (NumTargets),
+    .DataWidth  (DataWidth)
+  ) u_target (
     // Clock and reset for system interface.
-    .clk_i        (clk_i),
-    .rst_ni       (rst_ni),
+    .clk_i          (clk_i),
+    .rst_ni         (rst_ni),
 
     // Clock and reset for `always on` bus monitoring.
-    .clk_aon_i    (clk_aon_i),
-    .rst_aon_ni   (rst_aon_ni),
+    .clk_aon_i      (clk_aon_i),
+    .rst_aon_ni     (rst_aon_ni),
 
     // Control inputs.
-    .enable_i     (targ_tx_enable | targ_rx_enable),
-    .sw_reset_i   (targ_sw_reset),
+    .enable_i       (targ_tx_enable | targ_rx_enable),
+    .sw_reset_i     (targ_sw_reset),
 
     // Configuration inputs.
-    .reg2hw_i     (reg2hw)
+    .reg2hw_i       (reg2hw),
+
+    // Buffer reading.
+    .buf_rd_o       (targ_txbuf_rd),
+    .buf_rdata_i    (targ_txbuf_rdata),
+    .buf_empty_i    (targ_txbuf_empty),
+
+    // Buffer writing.
+    .buf_wr_o       (targ_rxbuf_wr),
+    .buf_wmask_o    (targ_rxbuf_wmask),
+    .buf_wdata_o    (targ_rxbuf_wdata),
+
+    // Requests/state information to transceiver.
+    .trx_dvalid_o   (targ_trx_dvalid),
+    .trx_dready_i   (targ_trx_dready),
+    .trx_dreq_o     (targ_trx_dreq),
+
+    // I3C clock signal from the controller.
+    .scl_ni         (targ_scl_buf_n),
+
+    // Response from transceiver logic.
+    .trx_rtoggle_i  (targ_trx_rtoggle),
+    .trx_rsp_i      (targ_trx_rsp)
   );
 
   // Buffer configuration.
@@ -348,7 +468,6 @@ module i3c_core
   assign hw2reg.ctrl_rxbuf_rptr.de = xfer_rxbuf_upd.valid | buf_sw_clear;
   assign hw2reg.ctrl_rxbuf_rptr.d  = buf_sw_clear ? 16'(ctrl_rxbuf_cfg.min)
                                                   : 16'(xfer_rxbuf_upd.next);
-
   // Data buffer for transmission and reception.
   i3c_buffer #(
     .BufAddrW  (BufAddrW),
@@ -418,14 +537,6 @@ module i3c_core
     .targ_rxbuf_wdata_i (targ_rxbuf_wdata)
   );
 
-  // TODO:
-  i3c_dtype_e ctrl_txbuf_rtype;
-//  assign ctrl_txbuf_rtype = I3CType_CommandWord;
-// TODO: Development.
- assign ctrl_txbuf_rtype = I3CType_DWORD;
-//
-// assign ctrl_txbuf_rtype = I3CType_Address;
-
   // Controller Transceiver.
   i3c_controller_trx #(
     .NumSDALanes (NumSDALanes)
@@ -435,30 +546,22 @@ module i3c_core
 
     .sw_reset_i     (ctrl_sw_reset),
 
-    .tx_enable_i    (ctrl_tx_enable),
-    .rx_enable_i    (ctrl_rx_enable),
-    .ddr_enable_i   (ddr_enable),
+    .enable_i       (ctrl_enable),
+
+    // Request from controller logic.
+    .trx_dvalid_i   (ctrl_trx_dvalid),
+    .trx_dready_o   (ctrl_trx_dready),
+    .trx_dreq_i     (ctrl_trx_dreq),
+
+    // Response to controller logic.
+    .trx_rvalid_o   (ctrl_trx_rvalid),
+    .trx_rsp_o      (ctrl_trx_rsp),
 
     // Timing parameters.
     // TODO: These all need sizing and ratifying of course.
     .clkdiv_i       (reg2hw.ctrl_clk_config.clkdiv.q),
     .tcas_i         ({8'b0, reg2hw.ctrl_clk_config.tcas.q}),
     .tcbp_i         ({8'b0, reg2hw.ctrl_clk_config.tcbp.q}),
-
-    // Control inputs.
-    .gen_hdr_exit_i (gen_hdr_exit),
-    .gen_hdr_sr_i   (gen_hdr_sr),
-
-    // Buffer reading.
-    .buf_rd_o       (ctrl_txbuf_rd),
-    .buf_rtype_i    (ctrl_txbuf_rtype),
-    .buf_rdata_i    (ctrl_txbuf_rdata),
-    .buf_empty_i    (ctrl_txbuf_empty),
-
-    // Buffer writing.
-    .buf_wr_o       (ctrl_rxbuf_wr),
-    .buf_wmask_o    (ctrl_rxbuf_wmask),
-    .buf_wdata_o    (ctrl_rxbuf_wdata),
 
     // I3C I/O signaling.
     .scl_o          (ctrl_scl_o),
@@ -474,52 +577,81 @@ module i3c_core
     .sda_pu_en_o    (ctrl_sda_pu_en_o)
   );
 
+  // Target device descriptions.
+  i3c_targ_info_t targ_info[NumTargets];
+  assign targ_info[0] = '0;  // TODO: Decide on target count and specify API registers.
+  always_comb begin
+    targ_info[1] = '0;
+    // Description of Secondary Controller, when enabled.
+    targ_info[1].pid = {reg2hw.stby_cr_device_char.pid_hi.q, 1'b0,
+                        reg2hw.stby_cr_device_pid_lo.q};
+    targ_info[1].dcr =  reg2hw.stby_cr_device_char.dcr.q;
+    targ_info[1].bcr = {reg2hw.stby_cr_device_char.bcr_fixed.q,
+                        reg2hw.stby_cr_device_char.bcr_var.q};
+    targ_info[1].lvr = '0;
+  end
+
   // Target Transceiver.
   i3c_target_trx #(
+    .NumTargets   (NumTargets),
     .NumSDALanes  (NumSDALanes),
-    .DataWidth    (DataWidth)
+    .DataWidth    (TargDW)
   ) u_targ_trx (
-    .clk_i              (clk_i),
     .rst_ni             (rst_ni),
 
     .sw_reset_i         (targ_sw_reset),
 
-    .tx_enable_i        (targ_tx_enable),
-    .rx_enable_i        (targ_rx_enable),
-    .ddr_enable_i       (ddr_enable),
+    .enable_i           (targ_enable),
+
+    .targ_info_i        (targ_info),
+
+    // Request from Target logic.
+    .trx_dvalid_i       (targ_trx_dvalid),
+    .trx_dready_o       (targ_trx_dready),
+    .trx_dreq_i         (targ_trx_dreq),
+
+    // Response to Target logic.
+    .trx_rtoggle_o      (targ_trx_rtoggle),
+    .trx_rsp_o          (targ_trx_rsp),
 
     // Secondary Controller address and validity indicator.
-    .ctrl_addr_i        (reg2hw.controller_device_addr.dynamic_addr),
-    .ctrl_addr_valid_i  (reg2hw.controller_device_addr.dynamic_addr_valid),
+    .ctrl_addr_i        (reg2hw.controller_device_addr.dynamic_addr.q),
+    .ctrl_addr_valid_i  (reg2hw.controller_device_addr.dynamic_addr_valid.q),
     // Target addresses and masks.
-    .targ_addr0_mask_i  (reg2hw.targ_addr_mask.mask0),
-    .targ_addr0_match_i (reg2hw.targ_addr_match.addr0),
-    .targ_addr1_mask_i  (reg2hw.targ_addr_mask.mask1),
-    .targ_addr1_match_i (reg2hw.targ_addr_match.addr1),
+    .targ_addr0_mask_i  (reg2hw.targ_addr_mask.mask0.q),
+    .targ_addr0_match_i (reg2hw.targ_addr_match.addr0.q),
+    .targ_addr1_mask_i  (reg2hw.targ_addr_mask.mask1.q),
+    .targ_addr1_match_i (reg2hw.targ_addr_match.addr1.q),
 
     // HDR pattern detection.
     .hdr_exit_det_i     (hdr_exit_det),
     .hdr_restart_det_i  (hdr_restart_det),
 
-    // Buffer reading.
-    .buf_rd_o           (targ_txbuf_rd),
-    .buf_rdata_i        (targ_txbuf_rdata),
-    .buf_empty_i        (targ_txbuf_empty),
-
-    // Buffer writing.
-    .buf_wr_o           (targ_rxbuf_wr),
-    .buf_wmask_o        (targ_rxbuf_wmask),
-    .buf_wdata_o        (targ_rxbuf_wdata),
-
     // I3C I/O signaling.
-    .scl_i              (targ_scl_i),
-    .sda_i              (targ_sda_i),
+    .scl_i              (targ_scl_buf),
+    .scl_ni             (targ_scl_buf_n),
+    .sda0_clk_i         (targ_sda0_clk),
+    .sda0_clk_ni        (targ_sda0_clk_n),
+    .sda_i              (targ_sda_buf),
     .sda_o              (targ_sda_o),
     .sda_pp_en_o        (targ_sda_pp_en_o),
     .sda_od_en_o        (targ_sda_od_en_o),
 
     // DFT-related controls.
     .scanmode_i         (scanmode)
+  );
+
+  // Internal timer driven by the IP block, reporting on timed events such as bus activity and
+  // receiver responses.
+  i3c_timer #(.ClkFreq(ClkFreq)) u_timer (
+    .clk_i            (clk_i),
+    .rst_ni           (rst_ni),
+
+    .rst_bus_avail_i  (rst_bus_avail),
+    .rst_bus_idle_i   (rst_bus_idle),
+
+    .bus_avail_o      (bus_avail),
+    .bus_idle_o       (bus_idle)
   );
 
   // Pattern detection signals (AON domain).
@@ -541,8 +673,9 @@ module i3c_core
     .rst_action_i       (reg2hw.stby_cr_ccc_config_rstact_params.rst_action),
 
     // I3C I/O signaling.
-    .scl_i              (targ_scl_i),
-    .sda_i              (targ_sda_i),
+    .scl_i              (targ_scl_buf),
+    .sda_clk_i          (targ_sda0_clk),
+    .sda_clk_ni         (targ_sda0_clk_n),
 
     // State.
     .activate_i         (activate_patt_det),
@@ -554,17 +687,14 @@ module i3c_core
     .hdr_restart_det_o  (hdr_restart_det_aon),
 
     .target_reset_o     (target_reset_aon),
-    .chip_reset_o       (chip_reset_aon),
-
-    // DFT-related controls.
-    .scanmode_i         (scanmode)
+    .chip_reset_o       (chip_reset_aon)
   );
 
   // TODO: Dummy status information.
   assign hw2reg.status.d = '0;
 
   // Master HCI interrupt; asserted when any HCI interrupt is asserted.
-  logic intr_hc, intr_pio, int_stby_cr;
+  logic intr_hc, intr_pio, intr_stby_cr;
   prim_intr_hw #(.IntrT("Status")) u_intr_hci (
     .clk_i                  (clk_i),
     .rst_ni                 (rst_ni),
@@ -808,7 +938,7 @@ assign chip_rst_req_o = chip_reset_aon;
   assign hw2reg.dct_section_offset.table_size.d   = 7'(NumDCTEntries);
   assign hw2reg.dct_section_offset.table_offset.d = I3C_DCT_OFFSET - BASE_OFFSET;
   assign hw2reg.ring_headers_section_offset.d     = '0;
-  assign hw2reg.ext_caps_section_offset.d         = '0;
+  assign hw2reg.ext_caps_section_offset.d         = I3C_STBY_EXTCAP_HEADER_OFFSET;
   // Internal Control Command Subtype Support.
   assign hw2reg.int_ctrl_cmds_en.icc_support.d         = 1'b0;
   assign hw2reg.int_ctrl_cmds_en.mipi_cmds_supported.d = 'h18;
@@ -825,5 +955,30 @@ assign chip_rst_req_o = chip_reset_aon;
   assign hw2reg.alt_queue_size.ext_ibi_queue_en.d    = 1'b0;
   assign hw2reg.alt_queue_size.alt_resp_queue_en.d   = 1'b1;
   assign hw2reg.alt_queue_size.alt_resp_queue_size.d = 8'(RspQueueEntries);
+
+  // Standby Controller Extended Capability.
+  assign hw2reg.stby_extcap_header.cap_length.d = I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS_OFFSET + 4  
+                                                - I3C_STBY_EXTCAP_HEADER_OFFSET;
+  assign hw2reg.stby_extcap_header.cap_id.d     = 'h12;
+
+  assign hw2reg.stby_cr_capabilities.daa_entdaa_support.d  = 1'b1;
+  assign hw2reg.stby_cr_capabilities.daa_setdasa_support.d = 1'b1;
+  assign hw2reg.stby_cr_capabilities.daa_setaasa_support.d = 1'b1;
+  assign hw2reg.stby_cr_capabilities.target_xact_support.d = 1'b1;  // TODO:
+  assign hw2reg.stby_cr_capabilities.simple_crr_support.d  = 1'b1;  // TODO:
+
+  assign hw2reg.stby_cr_ccc_config_getcaps.f2_crcap2_dev_interact.d = 1'b1;  // TODO:
+  assign hw2reg.stby_cr_ccc_config_getcaps.f2_crcap1_bus_config.d   = 1'b1;
+
+  // Debug Extended Capability.
+  assign hw2reg.debug_extcap_header.cap_length.d = I3C_SCHED_CMDS_DEBUG_OFFSET + 4
+                                                 - I3C_DEBUG_EXTCAP_HEADER_OFFSET;
+  assign hw2reg.debug_extcap_header.cap_id.d     = 'hC;
+  assign hw2reg.sched_cmds_debug.err_occurred.d  = 1'b0;
+  assign hw2reg.sched_cmds_debug.tick_interval.d = '0;
+  assign hw2reg.sched_cmds_debug.entity_id.d     = '0;
+  assign hw2reg.sched_cmds_debug.err_type.d      = '0;
+  assign hw2reg.sched_cmds_debug.inst_id.d       = '0;
+  assign hw2reg.sched_cmds_debug.sched_handler.d = '0;
 
 endmodule

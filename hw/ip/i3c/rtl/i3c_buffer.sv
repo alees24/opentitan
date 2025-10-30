@@ -19,6 +19,8 @@
 //       two cycle latency.
 //
 // TODO: Ability to service a request depends upon availability of data/space.
+//
+// TODO: Perhaps we don't really want byte-addressability?
 
 module i3c_buffer
   import i3c_pkg::*;

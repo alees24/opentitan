@@ -9,6 +9,7 @@
 module i3c
   import i3c_reg_pkg::*;
 #(
+  parameter int unsigned                    ClkFreq                   = 50_000_000,
   parameter logic [NumAlerts-1:0]           AlertAsyncOn              = '1,
   // Number of cycles of differential skew tolerated on the alert signal.
   parameter int unsigned                    AlertSkewCycles           = 1,
@@ -323,6 +324,7 @@ module i3c
   );
 
   i3c_core #(
+    .ClkFreq        (ClkFreq),
     .BufAddrW       (BufAddrW),
     .DataWidth      (DataWidth),
     .NumDATEntries  (NumDATEntries),

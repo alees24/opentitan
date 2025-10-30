@@ -11,9 +11,11 @@ W:CTRL:f:009
 C:CTRL:009
 W:TARG_ADDR_MATCH:f:7f18
 W:TARG_ADDR_MASK:f:7f
-W:800:f:18012345
+W:800:f:18012060
 W:CTRL_TXBUF_WPTR:f:1
-#128
+#1280
+// Load message for controller to transmit
+L:800:scripts/hdrmsg
 // Reset the Controller and Target logic
 W:CTRL:f:c0000000
 // Clear the message buffer
