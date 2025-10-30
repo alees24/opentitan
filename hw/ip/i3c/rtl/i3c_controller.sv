@@ -1,3 +1,4 @@
+// Copyright lowRISC contributors (OpenTitan project).
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -28,7 +29,7 @@ module i3c_controller
   input                       sw_reset_i,
 
   // Configuration settings.
-  input i3c_reg2hw_t          reg2hw_i,
+  input  i3c_reg2hw_t         reg2hw_i,
   // State information, presented via HCI.
   output                      ac_current_own_o,
 
@@ -36,15 +37,15 @@ module i3c_controller
   // Command Descriptor queue.
   output                      cmd_desc_full_o,
   input                       cmd_desc_write_i,
-  input   [DataWidth-1:0] cmd_desc_wdata_i,
+  input       [DataWidth-1:0] cmd_desc_wdata_i,
   // Response Descriptor queue.
   output                      rsp_desc_avail_o,
   input                       rsp_desc_read_i,
-  output  [DataWidth-1:0] rsp_desc_rdata_o,
+  output      [DataWidth-1:0] rsp_desc_rdata_o,
   // IBI Status/Data queue.
   output                      ibi_stat_avail_o,
   input                       ibi_stat_read_i,
-  output  [DataWidth-1:0] ibi_stat_rdata_o,
+  output      [DataWidth-1:0] ibi_stat_rdata_o,
 
   // HCI Device Address Table interface.
   input                       sw_dat_req_i,
@@ -69,12 +70,45 @@ module i3c_controller
   output i3c_pio_intr_t       intr_pio_o,
   output i3c_stby_cr_intr_t   intr_stby_cr_o,
 
+  // Buffer reading.
+  output logic                buf_rd_o,
+  input       [DataWidth-1:0] buf_rdata_i,
+  input                       buf_empty_i,
+
+  // Buffer writing.
+  output logic                buf_wr_o,
+  output    [DataWidth/8-1:0] buf_wmask_o,
+  output      [DataWidth-1:0] buf_wdata_o,
+
+  // Request to transceiver logic.
+  output                      trx_dvalid_o,
+  input                       trx_dready_i,
+  output i3c_ctrl_trx_req_t   trx_dreq_o,
+
+  // Response from transceiver logic.
+  input                       trx_rvalid_i,
+  input  i3c_ctrl_trx_rsp_t   trx_rsp_i,
+
+  // Debug status information.
+  output                [4:0] ibi_status_cnt_o,
+  output                [7:0] ibibuf_lvl_o,
+  output                [7:0] rspbuf_lvl_o,
+  output                [7:0] cmdq_free_lvl_o,
+  output                [7:0] rxbuf_lvl_o,
+  output                [7:0] txbuf_free_lvl_o,
+  output                [3:0] cmd_tid_o,
+  output                [5:0] bcl_tfr_ststat_o,
+  output                [5:0] bfl_tfr_status_o,
+  output                [7:0] ce2_error_cnt_o,
+
   // DFT-related signals.
   input  ram_1p_cfg_t         dat_cfg_i,
   output ram_1p_cfg_rsp_t     dat_cfg_rsp_o,
   input  ram_1p_cfg_t         dct_cfg_i,
   output ram_1p_cfg_rsp_t     dct_cfg_rsp_o
 );
+
+  import i3c_consts_pkg::*;
 
   // TODO: Suspect that we'd want to widen to 64a, write alternating words and then
   // use the static FIFO outputs directly, reading only after the command transfer is complete?
@@ -382,5 +416,162 @@ module i3c_controller
     intr_pio_o = '0;
     intr_stby_cr_o = '0;
   end
+
+  // TODO: Presently the decision is to leave the IP block domain, not the transceiver
+  // to do any required byte swizzling.
+  function automatic bit [DataWidth-1:0] revb(bit [DataWidth-1:0] wdata);
+    for (int unsigned b = 0; b < DataWidth; b += 8) begin
+      revb[b +: 8] = wdata[DataWidth - b - 8 +: 8];
+    end
+  endfunction
+
+  // Debug extended capability; although the FIFO implementations are stil unsettled, these could be
+  // wired easily enough.
+  // TODO
+  assign ibi_status_cnt_o = '0;
+  assign ibibuf_lvl_o = '0;
+  assign rspbuf_lvl_o = '0;
+  assign cmdq_free_lvl_o = '0;
+  assign rxbuf_lvl_o = '0;
+  assign txbuf_free_lvl_o = '0;
+  assign cmd_tid_o = '0;
+  assign bcl_tfr_ststat_o = '0;
+  assign bfl_tfr_status_o = '0;
+  assign ce2_error_cnt_o = '0;
+
+  `define CMD_READ
+ 
+  // TODO: This is just a simple state machine that runs the bus through its various modes,
+  // generating I2C, SDR and HDR traffic.
+  logic [3:0] ctrl_state;
+  always_comb begin
+    trx_dreq_o = '0;
+    case (ctrl_state)
+      // HDR-DDR Signalling.
+      4'b0000:  begin trx_dreq_o.dtype = I3CDType_Address;
+                      trx_dreq_o.mode  = i3c_xfer_mode_e'(XferMode_I2CFM);
+                      trx_dreq_o.wdata = Addr_Broadcast << (DataWidth - 7);
+                      trx_dreq_o.wlen  = 0;
+                end
+      4'b0001:  begin trx_dreq_o.dtype = I3CDType_SDRBytes;
+                      trx_dreq_o.mode  = XferMode_SDR0;
+                      trx_dreq_o.wdata = ENTHDR0 << (DataWidth - 8);
+                      trx_dreq_o.wlen  = 0;
+                end
+      4'b0010:  begin trx_dreq_o.dtype = I3CDType_CommandWord;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+`ifdef CMD_READ
+                      trx_dreq_o.wdata = revb(32'h876531a1);  // Address 0x18
+`else
+                      trx_dreq_o.wdata = revb(32'h87653121);  // Address 0x18
+`endif
+                      // Send only a single Command Word.
+                      trx_dreq_o.wlen  = 2'b00;
+                end
+`ifdef CMD_READ
+      // Just collect a few words for now.
+      4'b0011,
+      4'b0100,
+      4'b0101:  begin trx_dreq_o.dtype = I3CDType_DataWord;
+                      trx_dreq_o.rx    = 1'b1;
+                end
+// TODO: I think this makes no sense...the state machine needs to be reactive in some sense.
+      4'b0110:  begin //trx_dreq_o.dtype = I3CDType_CRCWord;
+trx_dreq_o.dtype = I3CDType_DataWord;
+                      trx_dreq_o.rx    = 1'b1;
+                end
+`else
+      4'b0011:  begin trx_dreq_o.dtype = I3CDType_DataWord;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+                      trx_dreq_o.wdata = revb(32'habcdefab);
+                      trx_dreq_o.wlen  = 2'b01;
+                end
+      4'b0100:  begin trx_dreq_o.dtype = I3CDType_DataWord;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+                      trx_dreq_o.wdata = revb(32'hfedcbafe);
+                      trx_dreq_o.wlen  = 2'b01;
+                end
+      4'b0101:  begin trx_dreq_o.dtype = I3CDType_DataWord;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+                      trx_dreq_o.wdata = revb(32'h12345678);
+                      // Note: should send only the 16 MSBs here.
+                      trx_dreq_o.wlen  = 2'b00;
+                end
+      4'b0110:  begin trx_dreq_o.dtype = I3CDType_CRCWord;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+                      // 4'hC token indicating a valid CRC word, and the final bit of the 10-bit
+                      // payload is set in preparation for HDR Restart/Exit.
+                      trx_dreq_o.wdata = 32'hc040_0000;
+                      trx_dreq_o.wlen  = 2'b00;
+                end
+`endif
+      4'b0111:  begin trx_dreq_o.dtype = I3CDType_HDRExit;
+                      trx_dreq_o.mode  = XferMode_HDRDDR;
+                      trx_dreq_o.wdata = 0;
+                      trx_dreq_o.wlen  = 0;
+                end
+      // SDR Signalling.
+      4'b1000:  begin trx_dreq_o.dtype = I3CDType_Address;
+                      trx_dreq_o.mode  = i3c_xfer_mode_e'(XferMode_I2CFM);
+                      trx_dreq_o.wdata = 'h18;
+                      trx_dreq_o.wlen  = 0;
+                end
+      4'b1001:  begin trx_dreq_o.dtype = I3CDType_SDRBytes;
+                      trx_dreq_o.mode  = XferMode_SDR0;
+                      // Note: this represents the raw data read from the message buffer, with
+                      // the LS byte (0x01) being the first byte to be transmitted/received.
+                      trx_dreq_o.wdata = revb(32'h04030201);
+                      trx_dreq_o.wlen  = 2'b11;
+                end
+      4'b1010:  begin trx_dreq_o.dtype = I3CDType_SDRBytes;
+                      trx_dreq_o.mode  = XferMode_SDR0;
+                      trx_dreq_o.wdata = revb(32'h08070605);
+                      trx_dreq_o.wlen  = 2'b11;
+                end
+      4'b1011:  begin trx_dreq_o.dtype = I3CDType_SDRBytes;
+                      trx_dreq_o.mode  = XferMode_SDR0;
+                      trx_dreq_o.wdata = revb(32'h0c0b0a09);
+                      trx_dreq_o.wlen  = 2'b11;
+                end
+      // Finnish state.
+      default:  begin
+                end
+    endcase
+  end
+  assign trx_dvalid_o = enable_i & (ctrl_state <= 4'b1011);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      ctrl_state <= '0;
+    end else if (enable_i & trx_dready_i) begin
+      ctrl_state <= ctrl_state + 'b1;
+    end
+  end
+
+  // TODO: No direct message buffer access presently.
+  assign buf_rd_o = 1'b0;
+
+  // TODO: Temporarily dump everything in the buffer.
+  logic        wvalid;
+  logic  [3:0] wmask;
+  logic [31:0] wdata;
+  assign buf_wr_o    = wvalid;
+  assign buf_wmask_o = wmask;
+  assign buf_wdata_o = wdata;
+
+  i3c_dword_buffer u_dword_buf (
+    .clk_i      (clk_i),
+    .rst_ni     (rst_ni),
+
+    // Input SDR bytes/HDR-DDR Data Words.
+    .valid_i    (trx_rvalid_i),
+    .flush_i    (1'b0),
+    .dtype_i    (trx_rsp_i.dtype),
+    .data_i     (trx_rsp_i.rdata[15:0]),
+
+    // Output DWORDs.  
+    .valid_o    (wvalid),
+    .mask_o     (wmask),
+    .data_o     (wdata)
+  );
 
 endmodule

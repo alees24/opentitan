@@ -8,26 +8,36 @@
 // do not respond to disconnected/undefined inputs. In an actual chip deployment, pinmux surely
 // guarantees a defined state to a disconnected input. Parameterized inclusion may be an option.
 
-module clock_inv_en #(
-  parameter bit HasScanMode = 1'b1,
-  parameter bit NoFpgaBufG  = 1'b0  // only used in FPGA case
+module i3c_clock_buf_en #(
+  parameter bit OutDisabled = 1'b0,  // output state when disabled.
+  parameter bit NoFpgaBufG  = 1'b0   // only used in FPGA case
 ) (
   input   en_i,
   input   clk_i,
   input   scanmode_i,
-  output  clk_no
+  input   scan_clk_i,
+  output  clk_o
 );
 
-  logic clk_n;
-  prim_clock_inv #(
-    .HasScanMode  (HasScanMode),
-    .NoFpgaBufG   (NoFpgaBufG)
-  ) u_inv (
-    .clk_i      (clk_i),
-    .scanmode_i (scanmode_i),
-    .clk_no     (clk_n)
+  // Gated input clock.
+  logic clk_gated;
+  buf_en #(
+    .Width        (1),
+    .OutDisabled  (OutDisabled)
+  ) u_buf (
+    .en_i   (en_i),
+    .in_i   (clk_i),
+    .out_o  (clk_gated)
   );
 
-  assign clk_no = en_i ? clk_n : 1'b0;
+  // Scan chain clocking.
+  prim_clock_mux2 #(
+    .NoFpgaBufG (NoFpgaBufG)
+  ) u_mux (
+    .clk0_i (clk_gated),
+    .clk1_i (scan_clk_i),
+    .sel_i  (scanmode_i),
+    .clk_o  (clk_o)
+  );
 
 endmodule

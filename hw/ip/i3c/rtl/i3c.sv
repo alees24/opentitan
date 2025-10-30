@@ -7,8 +7,10 @@
 `include "prim_assert.sv"
 
 module i3c
+  import i3c_pkg::*;
   import i3c_reg_pkg::*;
 #(
+  parameter int unsigned                    ClkFreq                   = 50_000_000,
   parameter logic [NumAlerts-1:0]           AlertAsyncOn              = '1,
   // Number of cycles of differential skew tolerated on the alert signal.
   parameter int unsigned                    AlertSkewCycles           = 1,
@@ -63,8 +65,9 @@ module i3c
   output logic                              cio_targ_sda_pp_en_o,
   output logic                              cio_targ_sda_od_en_o,
 
-  // Chip reset request.
-  output logic                              cio_chip_rst_req_o,
+  // Target Reset Detector request/response.
+  output i3c_rstdet_req_t                   rstdet_req_o,
+  input  i3c_rstdet_rsp_t                   rstdet_rsp_i,
 
   // Interrupt-signaling to hardware.
   output logic                              lsio_trigger_o,
@@ -323,6 +326,7 @@ module i3c
   );
 
   i3c_core #(
+    .ClkFreq        (ClkFreq),
     .BufAddrW       (BufAddrW),
     .DataWidth      (DataWidth),
     .NumDATEntries  (NumDATEntries),
@@ -402,8 +406,9 @@ module i3c
     .targ_sda_pp_en_o (cio_targ_sda_pp_en_o),
     .targ_sda_od_en_o (cio_targ_sda_od_en_o),
 
-    // Chip reset request.
-    .chip_rst_req_o   (cio_chip_rst_req_o),
+    // Target Reset Detector request/response.
+    .rstdet_req_o     (rstdet_req_o),
+    .rstdet_rsp_i     (rstdet_rsp_i),
 
     // Interrupts.
     .intr_hci_o       (intr_hci_o),

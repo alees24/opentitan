@@ -23,6 +23,13 @@ package i3c_consts_pkg;
     ENTTM     = 8'h0b,  // Enter Test Mode
 
     ENTHDR0   = 8'h20,  // Enter HDR Mode 0
+    ENTHDR1   = 8'h21,  // Enter HDR Mode 1
+    ENTHDR2   = 8'h22,  // Enter HDR Mode 2
+    ENTHDR3   = 8'h23,  // Enter HDR Mode 3
+    ENTHDR4   = 8'h24,  // Enter HDR Mode 4
+    ENTHDR5   = 8'h25,  // Enter HDR Mode 5
+    ENTHDR6   = 8'h26,  // Enter HDR Mode 6
+    ENTHDR7   = 8'h27,  // Enter HDR Mode 7
 
     SETAASA   = 8'h29,  // Set All Addresses to Static Addresses
     RSTACTB   = 8'h2a,  // Target Reset Action
@@ -78,6 +85,15 @@ package i3c_consts_pkg;
     XferMode_HDRTernary = 3'h5,
     XferMode_HDRDDR     = 3'h6
   } i3c_xfer_mode_e;
+
+  // I2C Transfer Mode (TCRI 7.1.1.1)
+  typedef enum logic [2:0] {
+    XferMode_I2CFM      = 3'h0,
+    XferMode_I2CFMPlus  = 3'h1,
+    XferMode_I2CUDR1    = 3'h2,
+    XferMode_I2CUDR2    = 3'h3,
+    XferMode_I2CUDR3    = 3'h4
+  } i2c_xfer_mode_e;
 
   // CMD_ATTR field of Command Descriptor (TCRI 7.1.2)
   typedef enum logic [2:0] {

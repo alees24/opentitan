@@ -82,7 +82,7 @@ module tb(
   // Register offsets, indexed by name.
   int unsigned reg_offsets[string];
   // Message data to be sent over the I3C bus.
-  byte msg_data[$];
+  logic [7:0] msg_data[$];
   bit msg_bits[$];
 
   tlul_pkg::tl_h2d_t tl_h2d;
@@ -121,19 +121,33 @@ module tb(
   logic cio_targ_sda_pp_en;
   logic cio_targ_sda_od_en;
   logic [NumSDALanes-1:0] cio_targ_sda;
+  // Presently the target does not drive SCL because HDR-BT mode is not supported.
+  assign cio_targ_scl_pp_en = 1'b0;
+  assign cio_targ_scl_od_en = 1'b0;
 
-  // Chip reset request.
-  logic cio_chip_rst_req;
+  // Peripheral reset request.
+  logic target_reset;
+  // Whole Target/Chip reset request.
+  logic chip_reset;
 
   // Use a single PHY if the Controller and Target are on a single bus?
   wire single_phy = SingleBus & 1'b1;
+
+  // Target Reset Detector request/response.
+  i3c_rstdet_req_t rstdet_req;
+  i3c_rstdet_rsp_t rstdet_rsp;
+
+  // DFT-related signals.
+  wire scan_clk = 1'b0;
+  prim_mubi_pkg::mubi4_t scanmode;
+  assign scanmode = prim_mubi_pkg::MuBi4False;
 
   prim_alert_pkg::alert_rx_t alert_rx;
   prim_alert_pkg::alert_tx_t alert_tx;
   assign alert_rx = '0;
 
   // Device Under Test.
-  i3c dut(
+  i3c dut (
     .clk_i                (clk_i),
     .rst_ni               (rst_ni),
 
@@ -176,8 +190,9 @@ module tb(
     .cio_targ_sda_pp_en_o (cio_targ_sda_pp_en),
     .cio_targ_sda_od_en_o (cio_targ_sda_od_en),
 
-    // Chip reset request.
-    .cio_chip_rst_req_o   (cio_chip_rst_req),
+    // Target Reset Detector request/response.
+    .rstdet_req_o         (rstdet_req),
+    .rstdet_rsp_i         (rstdet_rsp),
 
     // Interrupt-signaling to hardware
     .lsio_trigger_o       (lsio_trigger),
@@ -194,9 +209,34 @@ module tb(
     .dct_cfg_i            ('0),
     .dct_cfg_rsp_o        (),
     .mbist_en_i           (1'b0),
-    .scan_clk_i           (1'b0),
+    .scan_clk_i           (scan_clk),
     .scan_rst_ni          (1'b1),
-    .scanmode_i           (prim_mubi_pkg::MuBi4False)
+    .scanmode_i           (scanmode)
+  );
+
+  // Detector for I3C Target Reset pattern; this module is expected to exist outside of the I3C
+  // IP block in a low power `Always On` domain.
+  i3c_reset_detector u_reset_det (
+    // No free-running clock; the logic is driven by the Controller-supplied SCL signal to minimise
+    // the power consumption.
+    .rst_aon_ni     (rst_aon_ni),
+
+    // Request from the IP block.
+    .req_i          (rstdet_req),
+    // Response to the IP block.  
+    .rsp_o          (rstdet_rsp),
+
+    // I3C Target I/O signals being monitored.
+    .scl_i          (targ_scl),
+    .sda_i          (targ_sda),
+
+    // Control signals in response to Target Reset Pattern.
+    .target_reset_o (target_reset),
+    .chip_reset_o   (chip_reset),
+
+    // DFT-related signals.
+    .scan_clk_i     (scan_clk),
+    .scanmode_i     (scanmode)
   );
 
   // Control signals to the I3C Controller PHY, which may be the only PHY.
@@ -283,6 +323,14 @@ module tb(
   assign (weak0, weak1) ctrl_sda = cio_sda_hk_en ? 1'b1 : 1'bZ;
   `endif
 
+  // Potential for electrical fire on the I3C; driver contention.
+  wire fire = |{cio_ctrl_scl_pp_en & cio_targ_scl_pp_en,
+                cio_ctrl_sda_pp_en & cio_targ_sda_pp_en,
+                // TODO: Refine this expression....sometimes OD and PP are permitted simultaneously.
+                cio_ctrl_sda_pp_en & cio_targ_sda_od_en & !cio_targ_sda[0],
+                cio_ctrl_sda_od_en & cio_targ_sda_pp_en & !cio_ctrl_sda[0]} ?
+               1'bX : 1'b0;  // X is more visible.
+              
   // TODO: Move the following into an interface/module?
 
   // Host->device TL-UL with no integrity.
@@ -319,7 +367,7 @@ module tb(
 
   // Open configuration file.
   initial begin
-    static int test = 0;
+    static int test = 4;
     string cfg_filename;
     void'($value$plusargs("test=%x", test));
     case (test)
@@ -328,6 +376,7 @@ module tb(
       2: cfg_filename = "cfg_hci";
       3: cfg_filename = "cfg_dxt";
       4: cfg_filename = "sdr_addr";
+      5: cfg_filename = "reg_dump";
     endcase
     cfg_filename = {"scripts/", cfg_filename};
     cfg = $fopen(cfg_filename, "r");
@@ -335,7 +384,8 @@ module tb(
   end
 
   // Load data into the supplied queue
-  function automatic int load_file(ref byte data[$], input string filename, int unsigned addr);
+  function automatic int load_file(ref logic[7:0] data[$], input string filename,
+                                   int unsigned addr);
     localparam int EOF = -1;
     int msg;
     int ch;
@@ -343,8 +393,10 @@ module tb(
     if (~|msg) begin
       $display("WARNING: Unable to read message data file '%s'", filename);
     end else begin
-      bit [1:0] parity = 2'b01;
+      bit [15:0] cmd_word = 32'h2143;
+      bit [1:0] parity_hdr = 2'b01;
       bit [4:0] crc5 = 5'h1f;
+      bit cmd_bits[$];
       bit msg_bits[$];
       do begin
         ch = $fgetc(msg);
@@ -354,28 +406,51 @@ module tb(
         end
       end while (ch != EOF);
       $fclose(msg);
-      // We are presently sending 32-bit words, little endian order and the bits within those
-      // words are sent big endian.
       $display("data size %d", data.size());
-      for (int unsigned idx = 0; idx < data.size(); idx += 4) begin
-        bit [31:0] w = {data[idx+3], data[idx+2], data[idx+1], data[idx]};
-        // The bits are checked in the order of transmission, which means that we
-        // need to know whether the data will be sent in HDR or SDR mode!
-        for (int i = 31; i >= 0; i--) msg_bits.push_back(w[i]);  // SDR ordering.
+
+      // Compute the Parity Adjustment bit of the Command Word.
+      for (int i = 15; i > 0; i--) cmd_bits.push_back(cmd_word[i]);
+      cmd_bits.push_back(1'b0);
+      parity_hdr = update_parity(cmd_bits, parity_hdr);
+      void'(cmd_bits.pop_back());
+      cmd_bits.push_back(!parity_hdr[0]);
+      // Report the Parity bits of the Command Word.
+      parity_hdr = update_parity(cmd_bits, 2'b01);
+      $display("Command Word HDR-DDR Parity: 0b%b", parity_hdr);
+      // CRC-5 includes the payload of the Command Word too.
+      crc5 = update_crc5(cmd_bits, crc5);
+      $display("CRC-5 after cmd 0x%x", crc5);
+
+      for (int unsigned idx = 0; idx < data.size(); idx += 2) begin
+        // HDR-DDR parity is computed on each 16-bit Data Word individually.
+        bit [15:0] dw = {data[idx], data[idx+1]};
+        // SDR parity is computed on each byte independently.
+        bit parity_sdr0, parity_sdr1;
+        bit [1:0] parity_hdr;
+        msg_bits.delete();
+        for (int i = 15; i >= 8; i--) msg_bits.push_back(dw[i]);
+        parity_hdr = update_parity(msg_bits, 2'b01);
+        parity_sdr0 = ^parity_hdr;
+        crc5 = update_crc5(msg_bits, crc5);
+        msg_bits.delete();
+        for (int i = 7; i >= 0; i--) msg_bits.push_back(dw[i]);
+        parity_hdr = update_parity(msg_bits, parity_hdr);
+        parity_sdr1 = ^update_parity(msg_bits, 2'b01);
+        crc5 = update_crc5(msg_bits, crc5);
+        $display("Data Word: 0x%x", dw);
+        $display("HDR-DDR Parity: 0b%b", parity_hdr);
+        $display("SDR Parity: 0b%b,0b%b", parity_sdr0, parity_sdr1);
+        $display("CRC-5 updated to: 0x%x", crc5);
       end
-      // Update CRC-5 and Parity values.
       // TODO: In USB land we invert the final result?
-      parity = update_parity(msg_bits, parity);
-      crc5 = update_crc5(msg_bits, crc5);
-      $display("CRC-5: 0x%x", crc5);
-      $display("Parity: 0b%b", parity);
+      $display("HDR-DDR CRC-5: 0x%x", crc5);
       return 0;
     end
     return -1;
   endfunction
 
   // Save data from the supplied queue to a file.
-  function automatic int save_file(ref byte data[$], input string filename);
+  function automatic int save_file(ref logic [7:0] data[$], input string filename);
     int msg;
     msg = $fopen(filename, "wb");
     if (~|msg) begin
@@ -385,6 +460,32 @@ module tb(
         $fwrite(msg, "%c", data[i]);
       end
       $fclose(msg);
+    end
+  endfunction
+
+  // Return a symbolic register name or hexadecimal value for the given address offset.
+  function string get_reg_name(input int unsigned offset);
+    string s;
+    foreach (reg_offsets[i]) begin
+      if (reg_offsets[i] == offset) return i;
+    end
+    s.hextoa(offset);
+    return {"0x", s};
+  endfunction
+
+  // Produce a symbol register dump of the I3C IP block.
+  function automatic void dump_regs(ref logic [7:0] data[$], input string filename);
+    int regs;
+    regs = $fopen(filename, "wb");
+    if (~|regs) begin
+    end else begin
+      int unsigned offset = 0;
+      for (int unsigned i = 0; i < data.size(); i += 4) begin
+        logic [31:0] reg_data = {data[i+3], data[i+2], data[i+1], data[i]};
+        $fwrite(regs, "%s: %08x\n", get_reg_name(offset), reg_data);
+        offset += 4;
+      end
+      $fclose(regs);
     end
   endfunction
 
@@ -405,9 +506,14 @@ module tb(
         lineno++;
         if (len >= 36 && 0 == pattern.compare(str.substr(0, 35))) begin
           int unsigned offset;
+          int unsigned nlen;
           string name;
           // $display("Line %d: %s", lineno, str);
           void'($sscanf(str, "  parameter logic [BlockAw-1:0] I3C_%s = 12'h %x;", name, offset));
+          nlen = name.len();
+          if (nlen > 7 && "_OFFSET" == name.substr(nlen - 7, nlen - 1)) begin
+            name = name.substr(0, nlen - 8);
+          end
           $display("Reg: '%s' at offset 0x%x", name, offset);
           reg_offsets[name] = offset;
         end
@@ -425,6 +531,7 @@ module tb(
   localparam byte Char_Colon = 58;
   localparam byte Char_A = 65;
   localparam byte Char_C = 67;
+  localparam byte Char_D = 68;
   localparam byte Char_F = 70;
   localparam byte Char_L = 76;
   localparam byte Char_R = 82;
@@ -458,7 +565,7 @@ module tb(
         string name;
         // Scan until we reach any colon following the register name.
         while (idx < s.len() && s[idx] != Char_LF && s[idx] != Char_Colon) idx++;
-        name = {s.substr(0, idx - 1), "_OFFSET"};
+        name = s.substr(0, idx - 1);
         n = reg_offsets[name];
         $display("Looked up name '%s' -> 0x%x", name, n);
         // Skip past the colon.
@@ -479,6 +586,7 @@ module tb(
   logic [31:0] delay;
   logic proceed;
   logic loading;
+  logic dumping;
   logic saving;
 
   initial begin
@@ -498,6 +606,7 @@ module tb(
       delay     <= '0;
       loading   <= 1'b0;
       proceed   <= 1'b1;
+      dumping   <= 1'b0;
       saving    <= 1'b0;
       save_len  <= '0;
     end else begin
@@ -572,13 +681,17 @@ module tb(
                   loading <= (msg_data.size() != 0);
                   proceed <= 1'b1;
                 end
+                // Dump registers to file, or
                 // Save file
-                Char_S: begin : save_file
+                Char_D, Char_S: begin : save_file
                   int unsigned addr;
                   int unsigned len;
+                  bit dump;
+                  dump = (str[0] == Char_D);
                   str = str.substr(2, str.len() - 1);
                   addr = get_reg_offset(str);
                   void'($sscanf(str, "%x:%s", len, save_filename));
+                  if (dump) $display("Dumping registers to file '%s'", save_filename);
                   $display("Saving file '%s' of %x byte(s)", save_filename, len);
                   // TODO: We handle only complete 32-bit words at present.
                   save_len_req <= len;
@@ -586,6 +699,7 @@ module tb(
                   // When saving, the address is incremented before use, except for XFER_DATA_PORT.
                   cfg_addr  <= addr - ((addr == 32'(I3C_XFER_DATA_PORT_OFFSET)) ? 'd0 : 'd4);
                   saving    <= (len != 0);
+                  dumping   <= dump;
                   proceed   <= 1'b1;
                 end
                 // Terminate simulation.
@@ -654,7 +768,11 @@ module tb(
           msg_data.push_back(tl_d2h.d_data[31:24]);
           // Have we yet captured enough data?
           if (~|save_len) begin
-            void'(save_file(msg_data, save_filename));
+            if (dumping) begin
+              dump_regs(msg_data, save_filename);
+            end else begin
+              void'(save_file(msg_data, save_filename));
+            end
             $display("File '%s' saved", save_filename);
             msg_data.delete();
             saving <= 1'b0;

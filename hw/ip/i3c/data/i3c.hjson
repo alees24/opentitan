@@ -86,6 +86,7 @@
     }
   ]
   param_list: [
+/* TODO: Resolve this duplication of word counts and entry counts.
     { name:    "NumDATEntries",
       type:    "int",
       default: "32",
@@ -96,7 +97,7 @@
       default: "32",
       desc:    "Number of entries in the Device Characteristic Table."
     },
-    // TODO: Resolve this duplication of word counts and entry counts.
+*/
     { name:    "NumDATWords",
       type:    "int",
       default: "64",
@@ -1439,6 +1440,7 @@
       desc:     "Standby Controller Capabilities",
       swaccess: "ro",
       hwaccess: "hwo",
+      hwext:    "true",
       fields: [
         { bits:   "15",
           name:   "DAA_ENTDAA_SUPPORT",
@@ -1727,9 +1729,10 @@
     }
     { name:     "STBY_CR_CCC_CONFIG_GETCAPS",
       desc:     "Standby Controller CCC Auto-Response Config Get Capabilities",
-      // TODO: Billed as R/cW.
       swaccess: "rw",
       hwaccess: "hwo",
+      hwext:    "true",
+      hwqe:     "true",
       fields: [
         { bits:   "4",
           name:   "F2_CRCAP2_DEV_INTERACT",
@@ -1768,6 +1771,161 @@
           name:   "RST_ACTION",
           desc:   "Defining Byte of the RSTACT CCC.",
           resval: "0"
+        }
+      ]
+    }
+    // TODO: We have a choice here between keeping the registers at fixed offsets and trying to
+    // maximize compatibility with HCI driver code which may use the CAP_LENGTH field to check
+    // the suitability of the hardware.
+    { skipto: "0x280" },
+    { name:     "DEBUG_EXTCAP_HEADER",
+      desc:     "Debug Specific Extended Capability Header",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "23:8",
+          name:   "CAP_LENGTH",
+          desc:   "Capability Structure Length in DWORDs.",
+          // TODO:
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "CAP_ID",
+          desc:   "Extended Capability ID",
+          resval: "0x12"
+        }
+      ]
+    }
+    { name:     "QUEUE_STATUS_LEVEL",
+      desc:     "Queue Status Level",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "28:24",
+          name:   "IBI_STATUS_CNT",
+          desc:   "IBI Buffer Status Count.",
+          resval: "0"
+        }
+        { bits:   "23:16",
+          name:   "IBI_BUFFER_LVL",
+          desc:   "IBI Buffer Level.",
+          resval: "0"
+        }
+        { bits:   "15:8",
+          name:   "RESPONSE_BUFFER_LVL",
+          desc:   "Response Buffer Level.",
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "CMD_QUEUE_FREE_LVL",
+          desc:   "Command Queue Free Buffer Level.",
+          // TODO: This is the Command Queue size.
+          resval: "8"
+        }
+      ]
+    }
+    { name:     "DATA_BUFFER_STATUS_LEVEL",
+      desc:     "Data Buffer Status Level",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "15:8",
+          name:   "RX_BUF_LVL",
+          desc:   "Rx Data Buffer Status Count.",
+          resval: "0"
+        }
+        { bits:   "7:0",
+          name:   "TX_BUF_FREE_LVL",
+          desc:   "Tx Data Buffer Status Count.",
+          // TODO: This is the Tx Data Queue size.
+          resval: "0x80"
+        }
+      ]    
+    }
+    { name:     "PRESENT_STATE_DEBUG",
+      desc:     "Present State Debug",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "27:24",
+          name:   "CMD_TID",
+          desc:   "Command Transaction ID.",
+          resval: "0"
+        }
+        { bits:   "21:16",
+          name:   "BCL_TFR_ST_STATUS",
+          desc:   "Bus Controller Logic State.",
+          resval: "0"
+        }
+        { bits:   "13:8",
+          name:   "BCL_TFR_STATUS",
+          desc:   "Bus Controller Logic Transfer Type Status.",
+          resval: "0"
+        }
+        { bits:   "1",
+          name:   "SDA_LINE_SIGNAL_LEVEL",
+          desc:   "SDA Line Signal Level.",
+          resval: "1"
+        }
+        { bits:   "0",
+          name:   "SCL_LINE_SIGNAL_LEVEL",
+          desc:   "SCL Line Signal Level.",
+          resval: "1"
+        }
+      ]
+    }
+    { name:     "MX_ERROR_COUNTERS",
+      desc:     "Controller Error Counters.",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",
+      fields: [
+        { bits:   "7:0",
+          name:   "CE2_ERROR_COUNT",
+          desc:   "CE2 Error Counter.",
+          resval: "0"
+        }
+      ]
+    }
+    { name:     "SCHED_CMDS_DEBUG",
+      desc:     "Scheduled Commands Debug",
+      swaccess: "ro",
+      hwaccess: "hwo",
+      hwext:    "true",     
+      fields: [
+        { bits:   "21",
+          name:   "ERR_OCCURRED",
+          desc:   "Error Occurred.",
+          resval: "0",
+        }
+        { bits:   "20:16",
+          name:   "TICK_INTERVAL",
+          desc:   "Tick Interval Number.",
+          resval: "0",
+        }
+        { bits:   "15:8",
+          name:   "ENTITY_ID",
+          desc:   "Entity ID.",
+          resval: "0",
+        }
+        { bits:   "7",
+          name:   "ERR_TYPE",
+          desc:   "Error Type.",
+          resval: "0",
+        }
+        { bits:   "6:4",
+          name:   "INST_ID",
+          desc:   "Instance ID.",
+          resval: "0",
+        }
+        { bits:   "3:0",
+          name:   "SCHED_HANDLER",
+          desc:   "Scheduled Command Handler Type.",
+          resval: "0",
         }
       ]
     }

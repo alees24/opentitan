@@ -7,8 +7,6 @@
 package i3c_reg_pkg;
 
   // Param list
-  parameter int NumDATEntries = 32;
-  parameter int NumDCTEntries = 32;
   parameter int NumDATWords = 64;
   parameter int NumDCTWords = 128;
   parameter int NumAlerts = 1;
@@ -17,7 +15,7 @@ package i3c_reg_pkg;
   parameter int BlockAw = 12;
 
   // Number of registers for every interface
-  parameter int NumRegs = 67;
+  parameter int NumRegs = 73;
 
   // Alert indices
   typedef enum int {
@@ -973,23 +971,18 @@ package i3c_reg_pkg;
   typedef struct packed {
     struct packed {
       logic        d;
-      logic        de;
     } daa_entdaa_support;
     struct packed {
       logic        d;
-      logic        de;
     } daa_setdasa_support;
     struct packed {
       logic        d;
-      logic        de;
     } daa_setaasa_support;
     struct packed {
       logic        d;
-      logic        de;
     } target_xact_support;
     struct packed {
       logic        d;
-      logic        de;
     } simple_crr_support;
   } i3c_hw2reg_stby_cr_capabilities_reg_t;
 
@@ -1051,13 +1044,87 @@ package i3c_reg_pkg;
   typedef struct packed {
     struct packed {
       logic        d;
-      logic        de;
     } f2_crcap2_dev_interact;
     struct packed {
       logic [2:0]  d;
-      logic        de;
     } f2_crcap1_bus_config;
   } i3c_hw2reg_stby_cr_ccc_config_getcaps_reg_t;
+
+  typedef struct packed {
+    struct packed {
+      logic [15:0] d;
+    } cap_length;
+    struct packed {
+      logic [7:0]  d;
+    } cap_id;
+  } i3c_hw2reg_debug_extcap_header_reg_t;
+
+  typedef struct packed {
+    struct packed {
+      logic [4:0]  d;
+    } ibi_status_cnt;
+    struct packed {
+      logic [7:0]  d;
+    } ibi_buffer_lvl;
+    struct packed {
+      logic [7:0]  d;
+    } response_buffer_lvl;
+    struct packed {
+      logic [7:0]  d;
+    } cmd_queue_free_lvl;
+  } i3c_hw2reg_queue_status_level_reg_t;
+
+  typedef struct packed {
+    struct packed {
+      logic [7:0]  d;
+    } rx_buf_lvl;
+    struct packed {
+      logic [7:0]  d;
+    } tx_buf_free_lvl;
+  } i3c_hw2reg_data_buffer_status_level_reg_t;
+
+  typedef struct packed {
+    struct packed {
+      logic [3:0]  d;
+    } cmd_tid;
+    struct packed {
+      logic [5:0]  d;
+    } bcl_tfr_st_status;
+    struct packed {
+      logic [5:0]  d;
+    } bcl_tfr_status;
+    struct packed {
+      logic        d;
+    } sda_line_signal_level;
+    struct packed {
+      logic        d;
+    } scl_line_signal_level;
+  } i3c_hw2reg_present_state_debug_reg_t;
+
+  typedef struct packed {
+    logic [7:0]  d;
+  } i3c_hw2reg_mx_error_counters_reg_t;
+
+  typedef struct packed {
+    struct packed {
+      logic        d;
+    } err_occurred;
+    struct packed {
+      logic [4:0]  d;
+    } tick_interval;
+    struct packed {
+      logic [7:0]  d;
+    } entity_id;
+    struct packed {
+      logic        d;
+    } err_type;
+    struct packed {
+      logic [2:0]  d;
+    } inst_id;
+    struct packed {
+      logic [3:0]  d;
+    } sched_handler;
+  } i3c_hw2reg_sched_cmds_debug_reg_t;
 
   // Register -> HW type
   typedef struct packed {
@@ -1114,37 +1181,43 @@ package i3c_reg_pkg;
 
   // HW -> register type
   typedef struct packed {
-    i3c_hw2reg_intr_state_reg_t intr_state; // [542:541]
-    i3c_hw2reg_status_reg_t status; // [540:540]
-    i3c_hw2reg_ctrl_txbuf_wptr_reg_t ctrl_txbuf_wptr; // [539:523]
-    i3c_hw2reg_ctrl_txbuf_rptr_reg_t ctrl_txbuf_rptr; // [522:506]
-    i3c_hw2reg_ctrl_rxbuf_wptr_reg_t ctrl_rxbuf_wptr; // [505:489]
-    i3c_hw2reg_ctrl_rxbuf_rptr_reg_t ctrl_rxbuf_rptr; // [488:472]
-    i3c_hw2reg_targ_txbuf_rptr_reg_t targ_txbuf_rptr; // [471:455]
-    i3c_hw2reg_targ_rxbuf_wptr_reg_t targ_rxbuf_wptr; // [454:438]
-    i3c_hw2reg_hci_version_reg_t hci_version; // [437:406]
-    i3c_hw2reg_hc_control_reg_t hc_control; // [405:402]
-    i3c_hw2reg_hc_capabilities_reg_t hc_capabilities; // [401:388]
-    i3c_hw2reg_present_state_reg_t present_state; // [387:387]
-    i3c_hw2reg_intr_status_reg_t intr_status; // [386:377]
-    i3c_hw2reg_dat_section_offset_reg_t dat_section_offset; // [376:354]
-    i3c_hw2reg_dct_section_offset_reg_t dct_section_offset; // [353:331]
-    i3c_hw2reg_ring_headers_section_offset_reg_t ring_headers_section_offset; // [330:315]
-    i3c_hw2reg_pio_section_offset_reg_t pio_section_offset; // [314:299]
-    i3c_hw2reg_ext_caps_section_offset_reg_t ext_caps_section_offset; // [298:283]
-    i3c_hw2reg_int_ctrl_cmds_en_reg_t int_ctrl_cmds_en; // [282:267]
-    i3c_hw2reg_dev_ctx_base_lo_reg_t dev_ctx_base_lo; // [266:235]
-    i3c_hw2reg_dev_ctx_base_hi_reg_t dev_ctx_base_hi; // [234:203]
-    i3c_hw2reg_dev_ctx_sg_reg_t dev_ctx_sg; // [202:186]
-    i3c_hw2reg_response_queue_port_reg_t response_queue_port; // [185:154]
-    i3c_hw2reg_ibi_port_reg_t ibi_port; // [153:122]
-    i3c_hw2reg_queue_size_reg_t queue_size; // [121:90]
-    i3c_hw2reg_alt_queue_size_reg_t alt_queue_size; // [89:80]
-    i3c_hw2reg_pio_intr_status_reg_t pio_intr_status; // [79:66]
-    i3c_hw2reg_stby_extcap_header_reg_t stby_extcap_header; // [65:42]
-    i3c_hw2reg_stby_cr_capabilities_reg_t stby_cr_capabilities; // [41:32]
-    i3c_hw2reg_stby_cr_intr_status_reg_t stby_cr_intr_status; // [31:6]
-    i3c_hw2reg_stby_cr_ccc_config_getcaps_reg_t stby_cr_ccc_config_getcaps; // [5:0]
+    i3c_hw2reg_intr_state_reg_t intr_state; // [652:651]
+    i3c_hw2reg_status_reg_t status; // [650:650]
+    i3c_hw2reg_ctrl_txbuf_wptr_reg_t ctrl_txbuf_wptr; // [649:633]
+    i3c_hw2reg_ctrl_txbuf_rptr_reg_t ctrl_txbuf_rptr; // [632:616]
+    i3c_hw2reg_ctrl_rxbuf_wptr_reg_t ctrl_rxbuf_wptr; // [615:599]
+    i3c_hw2reg_ctrl_rxbuf_rptr_reg_t ctrl_rxbuf_rptr; // [598:582]
+    i3c_hw2reg_targ_txbuf_rptr_reg_t targ_txbuf_rptr; // [581:565]
+    i3c_hw2reg_targ_rxbuf_wptr_reg_t targ_rxbuf_wptr; // [564:548]
+    i3c_hw2reg_hci_version_reg_t hci_version; // [547:516]
+    i3c_hw2reg_hc_control_reg_t hc_control; // [515:512]
+    i3c_hw2reg_hc_capabilities_reg_t hc_capabilities; // [511:498]
+    i3c_hw2reg_present_state_reg_t present_state; // [497:497]
+    i3c_hw2reg_intr_status_reg_t intr_status; // [496:487]
+    i3c_hw2reg_dat_section_offset_reg_t dat_section_offset; // [486:464]
+    i3c_hw2reg_dct_section_offset_reg_t dct_section_offset; // [463:441]
+    i3c_hw2reg_ring_headers_section_offset_reg_t ring_headers_section_offset; // [440:425]
+    i3c_hw2reg_pio_section_offset_reg_t pio_section_offset; // [424:409]
+    i3c_hw2reg_ext_caps_section_offset_reg_t ext_caps_section_offset; // [408:393]
+    i3c_hw2reg_int_ctrl_cmds_en_reg_t int_ctrl_cmds_en; // [392:377]
+    i3c_hw2reg_dev_ctx_base_lo_reg_t dev_ctx_base_lo; // [376:345]
+    i3c_hw2reg_dev_ctx_base_hi_reg_t dev_ctx_base_hi; // [344:313]
+    i3c_hw2reg_dev_ctx_sg_reg_t dev_ctx_sg; // [312:296]
+    i3c_hw2reg_response_queue_port_reg_t response_queue_port; // [295:264]
+    i3c_hw2reg_ibi_port_reg_t ibi_port; // [263:232]
+    i3c_hw2reg_queue_size_reg_t queue_size; // [231:200]
+    i3c_hw2reg_alt_queue_size_reg_t alt_queue_size; // [199:190]
+    i3c_hw2reg_pio_intr_status_reg_t pio_intr_status; // [189:176]
+    i3c_hw2reg_stby_extcap_header_reg_t stby_extcap_header; // [175:152]
+    i3c_hw2reg_stby_cr_capabilities_reg_t stby_cr_capabilities; // [151:147]
+    i3c_hw2reg_stby_cr_intr_status_reg_t stby_cr_intr_status; // [146:121]
+    i3c_hw2reg_stby_cr_ccc_config_getcaps_reg_t stby_cr_ccc_config_getcaps; // [120:117]
+    i3c_hw2reg_debug_extcap_header_reg_t debug_extcap_header; // [116:93]
+    i3c_hw2reg_queue_status_level_reg_t queue_status_level; // [92:64]
+    i3c_hw2reg_data_buffer_status_level_reg_t data_buffer_status_level; // [63:48]
+    i3c_hw2reg_present_state_debug_reg_t present_state_debug; // [47:30]
+    i3c_hw2reg_mx_error_counters_reg_t mx_error_counters; // [29:22]
+    i3c_hw2reg_sched_cmds_debug_reg_t sched_cmds_debug; // [21:0]
   } i3c_hw2reg_t;
 
   // Register offsets
@@ -1215,6 +1288,12 @@ package i3c_reg_pkg;
   parameter logic [BlockAw-1:0] I3C_STBY_CR_INTR_FORCE_OFFSET = 12'h 254;
   parameter logic [BlockAw-1:0] I3C_STBY_CR_CCC_CONFIG_GETCAPS_OFFSET = 12'h 258;
   parameter logic [BlockAw-1:0] I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS_OFFSET = 12'h 25c;
+  parameter logic [BlockAw-1:0] I3C_DEBUG_EXTCAP_HEADER_OFFSET = 12'h 280;
+  parameter logic [BlockAw-1:0] I3C_QUEUE_STATUS_LEVEL_OFFSET = 12'h 284;
+  parameter logic [BlockAw-1:0] I3C_DATA_BUFFER_STATUS_LEVEL_OFFSET = 12'h 288;
+  parameter logic [BlockAw-1:0] I3C_PRESENT_STATE_DEBUG_OFFSET = 12'h 28c;
+  parameter logic [BlockAw-1:0] I3C_MX_ERROR_COUNTERS_OFFSET = 12'h 290;
+  parameter logic [BlockAw-1:0] I3C_SCHED_CMDS_DEBUG_OFFSET = 12'h 294;
 
   // Reset values for hwext registers and their fields
   parameter logic [0:0] I3C_INTR_TEST_RESVAL = 1'h 0;
@@ -1283,6 +1362,41 @@ package i3c_reg_pkg;
   parameter logic [23:0] I3C_STBY_EXTCAP_HEADER_RESVAL = 24'h 12;
   parameter logic [7:0] I3C_STBY_EXTCAP_HEADER_CAP_ID_RESVAL = 8'h 12;
   parameter logic [15:0] I3C_STBY_EXTCAP_HEADER_CAP_LENGTH_RESVAL = 16'h 0;
+  parameter logic [15:0] I3C_STBY_CR_CAPABILITIES_RESVAL = 16'h f020;
+  parameter logic [0:0] I3C_STBY_CR_CAPABILITIES_SIMPLE_CRR_SUPPORT_RESVAL = 1'h 1;
+  parameter logic [0:0] I3C_STBY_CR_CAPABILITIES_TARGET_XACT_SUPPORT_RESVAL = 1'h 1;
+  parameter logic [0:0] I3C_STBY_CR_CAPABILITIES_DAA_SETAASA_SUPPORT_RESVAL = 1'h 1;
+  parameter logic [0:0] I3C_STBY_CR_CAPABILITIES_DAA_SETDASA_SUPPORT_RESVAL = 1'h 1;
+  parameter logic [0:0] I3C_STBY_CR_CAPABILITIES_DAA_ENTDAA_SUPPORT_RESVAL = 1'h 1;
+  parameter logic [4:0] I3C_STBY_CR_CCC_CONFIG_GETCAPS_RESVAL = 5'h 0;
+  parameter logic [2:0] I3C_STBY_CR_CCC_CONFIG_GETCAPS_F2_CRCAP1_BUS_CONFIG_RESVAL = 3'h 0;
+  parameter logic [0:0] I3C_STBY_CR_CCC_CONFIG_GETCAPS_F2_CRCAP2_DEV_INTERACT_RESVAL = 1'h 0;
+  parameter logic [23:0] I3C_DEBUG_EXTCAP_HEADER_RESVAL = 24'h 12;
+  parameter logic [7:0] I3C_DEBUG_EXTCAP_HEADER_CAP_ID_RESVAL = 8'h 12;
+  parameter logic [15:0] I3C_DEBUG_EXTCAP_HEADER_CAP_LENGTH_RESVAL = 16'h 0;
+  parameter logic [28:0] I3C_QUEUE_STATUS_LEVEL_RESVAL = 29'h 8;
+  parameter logic [7:0] I3C_QUEUE_STATUS_LEVEL_CMD_QUEUE_FREE_LVL_RESVAL = 8'h 8;
+  parameter logic [7:0] I3C_QUEUE_STATUS_LEVEL_RESPONSE_BUFFER_LVL_RESVAL = 8'h 0;
+  parameter logic [7:0] I3C_QUEUE_STATUS_LEVEL_IBI_BUFFER_LVL_RESVAL = 8'h 0;
+  parameter logic [4:0] I3C_QUEUE_STATUS_LEVEL_IBI_STATUS_CNT_RESVAL = 5'h 0;
+  parameter logic [15:0] I3C_DATA_BUFFER_STATUS_LEVEL_RESVAL = 16'h 80;
+  parameter logic [7:0] I3C_DATA_BUFFER_STATUS_LEVEL_TX_BUF_FREE_LVL_RESVAL = 8'h 80;
+  parameter logic [7:0] I3C_DATA_BUFFER_STATUS_LEVEL_RX_BUF_LVL_RESVAL = 8'h 0;
+  parameter logic [27:0] I3C_PRESENT_STATE_DEBUG_RESVAL = 28'h 3;
+  parameter logic [0:0] I3C_PRESENT_STATE_DEBUG_SCL_LINE_SIGNAL_LEVEL_RESVAL = 1'h 1;
+  parameter logic [0:0] I3C_PRESENT_STATE_DEBUG_SDA_LINE_SIGNAL_LEVEL_RESVAL = 1'h 1;
+  parameter logic [5:0] I3C_PRESENT_STATE_DEBUG_BCL_TFR_STATUS_RESVAL = 6'h 0;
+  parameter logic [5:0] I3C_PRESENT_STATE_DEBUG_BCL_TFR_ST_STATUS_RESVAL = 6'h 0;
+  parameter logic [3:0] I3C_PRESENT_STATE_DEBUG_CMD_TID_RESVAL = 4'h 0;
+  parameter logic [7:0] I3C_MX_ERROR_COUNTERS_RESVAL = 8'h 0;
+  parameter logic [7:0] I3C_MX_ERROR_COUNTERS_CE2_ERROR_COUNT_RESVAL = 8'h 0;
+  parameter logic [21:0] I3C_SCHED_CMDS_DEBUG_RESVAL = 22'h 0;
+  parameter logic [3:0] I3C_SCHED_CMDS_DEBUG_SCHED_HANDLER_RESVAL = 4'h 0;
+  parameter logic [2:0] I3C_SCHED_CMDS_DEBUG_INST_ID_RESVAL = 3'h 0;
+  parameter logic [0:0] I3C_SCHED_CMDS_DEBUG_ERR_TYPE_RESVAL = 1'h 0;
+  parameter logic [7:0] I3C_SCHED_CMDS_DEBUG_ENTITY_ID_RESVAL = 8'h 0;
+  parameter logic [4:0] I3C_SCHED_CMDS_DEBUG_TICK_INTERVAL_RESVAL = 5'h 0;
+  parameter logic [0:0] I3C_SCHED_CMDS_DEBUG_ERR_OCCURRED_RESVAL = 1'h 0;
 
   // Window parameters
   parameter logic [BlockAw-1:0] I3C_XFER_DATA_PORT_OFFSET = 12'h 208;
@@ -1366,11 +1480,17 @@ package i3c_reg_pkg;
     I3C_STBY_CR_INTR_SIGNAL_ENABLE,
     I3C_STBY_CR_INTR_FORCE,
     I3C_STBY_CR_CCC_CONFIG_GETCAPS,
-    I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS
+    I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS,
+    I3C_DEBUG_EXTCAP_HEADER,
+    I3C_QUEUE_STATUS_LEVEL,
+    I3C_DATA_BUFFER_STATUS_LEVEL,
+    I3C_PRESENT_STATE_DEBUG,
+    I3C_MX_ERROR_COUNTERS,
+    I3C_SCHED_CMDS_DEBUG
   } i3c_id_e;
 
   // Register width information to check illegal writes
-  parameter logic [3:0] I3C_PERMIT [67] = '{
+  parameter logic [3:0] I3C_PERMIT [73] = '{
     4'b 0001, // index[ 0] I3C_INTR_STATE
     4'b 0001, // index[ 1] I3C_INTR_ENABLE
     4'b 0001, // index[ 2] I3C_INTR_TEST
@@ -1437,7 +1557,13 @@ package i3c_reg_pkg;
     4'b 0111, // index[63] I3C_STBY_CR_INTR_SIGNAL_ENABLE
     4'b 0111, // index[64] I3C_STBY_CR_INTR_FORCE
     4'b 0001, // index[65] I3C_STBY_CR_CCC_CONFIG_GETCAPS
-    4'b 1111  // index[66] I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS
+    4'b 1111, // index[66] I3C_STBY_CR_CCC_CONFIG_RSTACT_PARAMS
+    4'b 0111, // index[67] I3C_DEBUG_EXTCAP_HEADER
+    4'b 1111, // index[68] I3C_QUEUE_STATUS_LEVEL
+    4'b 0011, // index[69] I3C_DATA_BUFFER_STATUS_LEVEL
+    4'b 1111, // index[70] I3C_PRESENT_STATE_DEBUG
+    4'b 0001, // index[71] I3C_MX_ERROR_COUNTERS
+    4'b 0111  // index[72] I3C_SCHED_CMDS_DEBUG
   };
 
 endpackage
