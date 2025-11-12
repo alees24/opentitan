@@ -932,7 +932,7 @@ dif_result_t dif_usbdev_set_test_mode(const dif_usbdev_t *usbdev,
       mmio_region_read32(usbdev->base_addr, USBDEV_PHY_CONFIG_REG_OFFSET);
   // Default to disabling all test modes.
   bool set_tx_osc_mode = false;
-  bool set_tx_pkt_mode = false;
+//  bool set_tx_pkt_mode = false;
   switch (mode) {
     case kDifUsbdevTestModeNone:
       // Clear all test mode enables.
@@ -941,15 +941,15 @@ dif_result_t dif_usbdev_set_test_mode(const dif_usbdev_t *usbdev,
       set_tx_osc_mode = true;
       break;
     case kDifUsbdevTestModeTxPacket:
-      set_tx_pkt_mode = true;
+//      set_tx_pkt_mode = true;
       break;
     default:
       return kDifBadArg;
   }
   reg_val = bitfield_bit32_write(
       reg_val, USBDEV_PHY_CONFIG_TX_OSC_TEST_MODE_BIT, set_tx_osc_mode);
-  reg_val = bitfield_bit32_write(
-      reg_val, USBDEV_PHY_CONFIG_TX_PKT_TEST_MODE_BIT, set_tx_pkt_mode);
+//  reg_val = bitfield_bit32_write(
+//      reg_val, USBDEV_PHY_CONFIG_TX_PKT_TEST_MODE_BIT, set_tx_pkt_mode);
   mmio_region_write32(usbdev->base_addr, USBDEV_PHY_CONFIG_REG_OFFSET, reg_val);
   return kDifOk;
 }
