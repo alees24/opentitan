@@ -47,12 +47,6 @@ package i3c_pkg;
   // Maximum number of groups to which a Target may be added.
   localparam int unsigned NumGroups = 8;
 
-  // The Target must also respond to the I3C Broadcast Address (7'h7e), and an additional encoding
-  // is used within the Target transceiver logic to indicate the address did not match anything.
-  localparam int unsigned TargIDW = $clog2(MaxTargets + 2);
-  localparam bit [TargIDW-1:0] TargIDNoMatch   = TargIDW'(MaxTargets);
-  localparam bit [TargIDW-1:0] TargIDBroadcast = TargIDW'(MaxTargets+1);
-
   // Number of blocked addresses supported; this is a safeguard against I2C devices that may use
   // clock-stretching, but may also be of use diagnostically.
   localparam int unsigned NumBlocked = 2;
@@ -171,8 +165,9 @@ package i3c_pkg;
     logic te;
     logic [MaxTargets-1:0] tx_desc_ready;
     logic [MaxTargets-1:0] tx_thld;
-    logic async_evt_ovl;
-    logic rx_buffer_ovl;
+    logic async_evt_ovf;
+    logic rx_buffer_ovf;
+    logic rx_desc_ovf;
     logic transfer_err;
     logic transfer_abort;
     logic async_evt_ready;
@@ -395,67 +390,6 @@ package i3c_pkg;
 
   localparam int unsigned TmCycW = 10;  // Width of cycle counter in Controller transceiver.
 
-  // Type of data unit transferred/request to be actioned.
-  // TODO(#31035): It's likely that there's some benefit to splitting this into two types.
-  // Then move them into controller/target_pkg.
-  typedef enum logic [4:0] {
-    // Time interval.
-    I3CDType_TimedDelay   = 5'b00000,  // TODO(#31035): This seemed useful but presently is unused.
-    // HDR-DDR Words; bits [1:0] are the Preamble bits.
-    I3CDType_CommandWord  = 5'b00001,
-    I3CDType_DataWord     = 5'b00011,
-    I3CDType_CRCWord      = 5'b00101,
-    // Arbitrable Address Header.
-    I3CDType_ArbAddr      = 5'b00010,
-    // Ack/Nack bit of arbitrable address header.
-    I3CDType_AckNack      = 5'b00100,
-    // Arbitrable Dynamic Address Allocation phase.
-    I3CDType_ArbDAA       = 5'b00110,
-    I3CDType_DynAddr      = 5'b00111,
-    // Non-arbitrable Address Header.
-    I3CDType_Address      = 5'b01000,
-    // SDR signaling.
-    I3CDType_SDRBytes     = 5'b01001,
-    // SDRStop
-    I3CDType_SDRStart     = 5'b01010,
-    I3CDType_SDRStop      = 5'b01011,
-    I3CDType_SDRRepStart  = 5'b01100,
-    // HDR Restart/Exit signaling.
-    I3CDType_HDRRestart   = 5'b01101,
-    I3CDType_HDRExit      = 5'b01110,
-    // Direct drive of SCL and SDA by software.
-    I3CDType_DirectDrive  = 5'b01111,
-    // Target Resdet signaling.
-    I3CDType_TargetReset  = 5'b10000
-  } i3c_dtype_e;
-
-  // Group address description.
-  typedef struct packed {
-    logic            [6:0] addr;
-    logic                  addr_valid;
-    // Subset of Virtual Targets presently subscribed to this group address.
-    logic [MaxTargets-1:0] targets;
-  } i3c_grp_addr_t;
-
-  // Set maximum read, write, IBI length.
-  typedef struct packed {
-    logic                  setmwl;   // As opposed to SETMRL.
-    logic                  setibi;   // Optional, SETMRL only.
-    logic [MaxTargets-1:0] targets;  // Set of affected Targets.
-    logic           [15:0] mwrl;     // Length for SETMW|RL.
-    logic            [7:0] ibil;     // Optional max IBI payload length.
-  } i3c_setml_t;
-
-  // Enable/Disable Target-side IBI generation.
-  typedef struct packed {
-    logic [MaxTargets-1:0] enint;   // Regular In-Band Interrupts.
-    logic [MaxTargets-1:0] disint;
-    logic [MaxTargets-1:0] encr;    // Controller Role requests.
-    logic [MaxTargets-1:0] discr;
-    logic [MaxTargets-1:0] enhj;    // Hot-Join requests.
-    logic [MaxTargets-1:0] dishj;
-  } i3c_endis_event_t;
-
   // Indicates whether the given address is an 'Error Type TE0' address (4.3.8.1.1).
   // - these are single-bit deviations from the I3C Broadcast Address 7'h7e.
   function automatic logic te0_invalid_addr(logic [6:0] addr);
@@ -489,7 +423,7 @@ package i3c_pkg;
     return !ccc[7];
   endfunction
 
-  // Direct Get, as opposed to Direct Set or Broadcast CCC?
+  // Direct GET, as opposed to Direct Set or Broadcast CCC?
   function automatic logic direct_get(logic [7:0] ccc);
     return ccc[7] & (ccc inside {GETMWL, GETMRL, GETPID, GETBCR, GETDCR, GETSTATUS,
                                  GETACCCR, GETMXDS, GETCAPS, GETXTIME});

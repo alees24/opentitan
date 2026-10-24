@@ -83,7 +83,11 @@ package i3c_controller_pkg;
     DirectDrv,
 
     // --- Error handling and recovery ---
-    CmdDecErr,  // Command was rejected in second-stage decoding.
+    CmdDecErr,  // Command was rejected during decoding.
+    CmdDecAbt,  // Command was rejected during Abort handling.
+
+    // --- Controller-global Abort state ---
+    Aborted,  // During this state even IBIs are ignored.
 
     // Exit from this state occurs only in response to a software reset.
     ErrFatal
@@ -234,12 +238,23 @@ package i3c_controller_pkg;
   // Stored properties of the current HCI Command Descriptor, and properties preserved from earlier
   // Command Descriptor(s) forming a single sequence.
   //
-  // - Command Descriptors may operate together to form a single CCC operation.
+  // - Command Descriptors may operate together as a 'sequence', e.g., to form a single CCC
+  //   operation.
   // - Address Assignment commands require iteration, to assign a number of dynamic addresses.
+  // - Aborting (either PIO- or Controller-level) requires that the remaining commands of the
+  //   aborted sequence receive `HC_ABORTED` responses.
   typedef struct packed {
     // Command Descriptor available; command ready to be actioned.
     // Note: This does not imply that the Command Descriptor has been accepted as valid.
     logic                 available;
+
+    // Aborting a sequence of one or more commands.
+    // - upon completion of a Controller Abort the FSM will enter the stable `Aborted` state and
+    //   await software intervention.
+    // - PIO Abort simply returns responses for the commands in the current sequence and then holds
+    //   off the dispatch of new commands.
+    logic                 aborting;
+
     // Indication that the command has been accepted as valid and that we have started at least
     // one attempt at executing the command, so the remainder of this state may be trusted.
     logic                 started;

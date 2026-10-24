@@ -69,11 +69,13 @@ module i3c_part_primary
   input  top_racl_pkg::racl_policy_vec_t    racl_policies_i,
   output top_racl_pkg::racl_error_log_t     racl_error_o,
 
-  // SCL and SDA
+  // Serial clock (SCL).
   input                                     cio_scl_i,
   output logic                              cio_scl_o,
   output logic                              cio_scl_en_o,
 
+  // Serial data (SDA).
+  // - Virtual Open Drain signaling.
   input                                     cio_sda_i,
   output logic                              cio_sda_o,
   output logic                              cio_sda_en_o,

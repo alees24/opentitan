@@ -241,7 +241,7 @@ module i3c_controller_fsm
     .cmd_reg_o      (cmd_reg),
     .cmd_imm_o      (cmd_imm),
 
-    // Response status; ErrStatus_OK iff the command is accepted by the decoder.
+    // Response status; ErrStatus_SUCCESS iff the command is accepted by the decoder.
     .err_o          (cmd_dec_err),
     // Have accesses to the Target address of this command been blocked?
     .blocked_o      (cmd_addr_blocked)
@@ -394,7 +394,16 @@ module i3c_controller_fsm
                         gstate_i == GState_Running};
   // Some command descriptors must be rejected immediately.
   wire cmd_reject   = &{cmd_avail, !cmd_init_ok, !rsp_desc_wfull_i};
-
+  // If we're aborting, then any command descriptor shall be aborted if it was not rejected above
+  // (commands rejected during stage 1 cannot be trusted as terminators of aborted sequences).
+  // Aborting of command descriptors stops with `TOC` or descriptor exhaustion.
+  wire cmd_abort    = &{cmd_avail, cmd_state.aborting, !rsp_desc_wfull_i};
+  // Controller Abort?
+  // - transition into Aborted as soon as possible without generating I3C bus errors.
+  wire ctrl_abt_now = (gstate_i == GState_Aborting);
+  wire ctrl_abt_clr = (gstate_i != GState_Aborted);
+  // PIO Abort or Controller Abort?
+  wire abort_now    = ctrl_abt_now | reg2hw_i.pio_control.abort.q;
   // Disable the Controller?
   wire disable_now  = (gstate_i == GState_Disabling);
 
@@ -414,6 +423,7 @@ module i3c_controller_fsm
   typedef struct packed {
     logic       pending;
     logic       dec_err;   // Error returned from command decoding?
+    logic       dec_abt;   // Abort handling?
     logic       nack_det;  // Too many NACK responses to command?
     logic       wroc;      // Write Response on Completion.
     logic       rnw;       // Read not Write.
@@ -445,7 +455,8 @@ module i3c_controller_fsm
       Inactive: proceed = 1'b1;  // Transition to Idle only occurs when enabled.
       // We leave the Idle state because command(s) are pending, or because the transceiver has
       // notified us of the Start request of one or more Target(s).
-      Idle:     proceed = |{direct_drive, disable_now, cmd_reject, cmd_dispatch, start_request};
+      Idle:     proceed = |{direct_drive, disable_now, cmd_abort, cmd_reject, cmd_dispatch,
+                            start_request};
 
       CmdBegin: proceed = 1'b1;  // DAT always available for reads.
 
@@ -487,8 +498,9 @@ module i3c_controller_fsm
       // - `ccc_proceed` means advance the internal state used when handling this CCC.
       CCC:       proceed = ccc_rsp.done & ccc_proceed;  // `done` signals command completion.
 
-      // Command Errors; these are non-fatal errors which are posted as responses.
-      CmdDecErr: proceed = 1'b1;
+      // Command failures; these are non-fatal errors which are posted as responses.
+      CmdDecErr,                  // Command was rejected as invalid.
+      CmdDecAbt: proceed = 1'b1;  // Aborting the remaining commands of a sequence.
 
       // TODO(#31304): Implement this as more than a single issue; in more general use it shall be
       // issued following a RSTACT CCC Command Descriptor with TOC set.
@@ -497,6 +509,9 @@ module i3c_controller_fsm
 
       // Under software direct-driving of the pins we must wait until this mode is disabled.
       DirectDrv: proceed = trx_dready_i;
+
+      // Controller Abort request; driver involvement is required to exit this state.
+      Aborted:   proceed = direct_drive | ctrl_abt_clr;
 
       // Transient states are covered here...
       // - CmdDecode, IBIDone.
@@ -522,6 +537,7 @@ module i3c_controller_fsm
       Idle:         state_d = direct_drive ? DirectDrv :
                                disable_now ? Inactive  :
                                 cmd_reject ? CmdDecErr :
+                                 cmd_abort ? CmdDecAbt :
                               cmd_dispatch ? CmdBegin  : StartSDR;
 
       // --- Controller Role and Hot-Join Requests ---
@@ -568,6 +584,7 @@ module i3c_controller_fsm
           endcase
         end
       end
+      ReStHDR:  state_d = Idle;
       ExitHDR:  state_d = StopSDR;
       StartSDR: state_d = CmdArb;
       // Arbitrable Address header allows IBI, CRR and HJ requests to gain control of the I3C bus.
@@ -575,7 +592,7 @@ module i3c_controller_fsm
       // The Transceiver informs us of the outcome of the Arbitrable Address Header, and we must
       // respond promptly by sending an ACK/NACK request to the transceiver logic.
       //
-      // TODO(#31304) If we lose arbitration at this point we must erase any state changes that
+      // TODO(#31304): If we lose arbitration at this point we must erase any state changes that
       // resulted from starting to work on this command. We must start afresh later. More generally
       // the lifetime and (re)initialization of the members of `cmd_state` needs consideration.
       WaitArb:  state_d = trx_arb_i.arb_lost ? SendAckb : WaitAckb;
@@ -598,12 +615,15 @@ module i3c_controller_fsm
                               ibi_req ? IBICheck : CRR;
       EnterDDR: state_d = CmdWord;
       CmdWord:  state_d = cmd_attrs.rnw ? RxData : TxData;
-      TxData:   state_d = data_last ? (cmd_attrs.ddr ? TxCRC : (cmd_attrs.toc ? StopSDR : RepStSDR))
-                                    : TxData;
-      RxData:   state_d = data_last ? (cmd_attrs.ddr ? RxCRC : (cmd_attrs.toc ? StopSDR : RepStSDR))
-                                    : RxData;
+      // TODO(#31304): Ensure that we send HC_ABORTED response with an appropriate data length.
+      TxData:   state_d = (data_last | cmd_state.aborting) ? (cmd_attrs.ddr ? TxCRC   :
+                                                              cmd_attrs.toc ? StopSDR : RepStSDR)
+                                                           : TxData;
+      RxData:   state_d = (data_last | cmd_state.aborting) ? (cmd_attrs.ddr ? RxCRC   :
+                                                              cmd_attrs.toc ? StopSDR : RepStSDR)
+                                                           : RxData;
       TxCRC,
-      RxCRC:    state_d = cmd_attrs.toc ? ExitHDR : Idle;
+      RxCRC:    state_d = cmd_attrs.toc ? ExitHDR : ReStHDR;
       StopSDR:  state_d = Idle;
       RepStSDR: state_d = Idle;  // We need this delay to pick up _both_ command words.
 
@@ -617,19 +637,24 @@ module i3c_controller_fsm
       // or otherwise.
       CCC: begin
         unique case (ccc_rsp.err_status)
-          ErrStatus_OK: state_d = cmd_attrs.toc ? StopSDR : RepStSDR;
+          ErrStatus_SUCCESS: state_d = cmd_attrs.toc ? StopSDR : RepStSDR;
           default: state_d = ErrFatal;
         endcase
       end
 
-      // --- Command Errors ---
-      CmdDecErr:  state_d = Idle;
+      // --- Command Failures ---
+      CmdDecErr,
+      CmdDecAbt:  state_d = Idle;
 
       // --- Target Reset operations ---
       TargRst:    state_d = Idle;
 
       // --- Direct-driving of pins by software ---
       DirectDrv:  state_d = direct_drive ? DirectDrv : ExitHDR;
+
+      // --- Controller Abort ---
+      Aborted:    state_d = direct_drive ? DirectDrv :
+                             disable_now ? Inactive  : Idle;
 
       // --- Fatal errors and any undefined state require a software reset ---
       ErrFatal:   state_d = ErrFatal;
@@ -646,9 +671,10 @@ module i3c_controller_fsm
   // TODO(#31304): Suspend when an error condition occurs.
   assign suspending_o = 1'b0;
 
-  // Response to Abort request; this status indication is consulted only in `GState_Aborting`
-  // so it needs no further qualification here.
-  assign aborted_o = (state_q == Idle && !cmd_state.available);  // This is just temporary.
+  // Response to _Controller Abort_ request; in response to a Controller Abort request the FSM/
+  // completely ceases operation including servicing of In-Band Interrupt requests.
+  assign aborted_o = (state_q == Aborted);
+
   // TODO(#31304): We do, however, need to respond more promptly to `Aborting` in a few states such
   // as part-way through handling an Address Assignment command. HCI 6.5.6 seems to indicate that
   //` transfer_aborted_o` shall be asserted only when actually reporting `HC_ABORTED` in one or
@@ -696,6 +722,7 @@ module i3c_controller_fsm
       cmdq_lo_valid       <= 1'b0;
       cmdq_lo_data        <= 'b0;  // Not logically required, just for the HCI `SOFT_RST` action.
       cmd_state.available <= 1'b0;
+      cmd_state.aborting  <= 1'b0;
       cmd_state.started   <= 1'b0;
       pio_bcst_addr_en    <= 1'b0;
       cmd_state.rst_csect <= 1'b0;
@@ -821,6 +848,10 @@ module i3c_controller_fsm
 
       // Remember whether a DAT read was performed.
       datf_re_q <= datf_re;
+
+      // Abort handling.
+      if (ctrl_abt_now) cmd_state.aborting <= 1'b1;
+      else if (ctrl_abt_clr & (state_q == Aborted)) cmd_state.aborting <= 1'b0;
     end
   end
 
@@ -883,7 +914,8 @@ module i3c_controller_fsm
   assign cmd_complete = (trans_type == TransType_Cmd) &
                        |{cmd_trans_done,
                         (state_q == TargRst) & trx_dready_i,  // Target Reset internal command.
-                        (state_q == CmdDecErr)};              // Command rejected.
+                        (state_q == CmdDecErr),          // Command rejected during decoding.
+                        (state_q == CmdDecAbt)};         // Command rejected during Abort handling.
 
   // Reading of commands; we use the FIFO output directly for the upper half of the Command
   // Descriptor, so it is consumed upon completion of the command.
@@ -1190,10 +1222,11 @@ module i3c_controller_fsm
   // - this response indicates the success/failure of the transfer, including any error information.
   // - do not create a response for an IBI payload read.
   wire rsp_received = (rx_dest != RxDest_IBI) & trx_rvalid_i;
-  wire rsp_success = (trx_rsp_i.err_status == ErrStatus_OK);
+  wire rsp_success = (trx_rsp_i.err_status == ErrStatus_SUCCESS);
   wire rsp_post = rsp_info.pending & |{rsp_received & rsp_info.wroc,  // From transceiver.
                                        rsp_received & !rsp_success,   // All errors are posted.
                                        rsp_info.dec_err,              // From command decode.
+                                       rsp_info.dec_abt,              // From command aborting.
                                        rsp_info.nack_det};            // From command execution.
   wire rsp_drop = &{rsp_info.pending, rsp_received, !rsp_info.wroc, rsp_success};
 
@@ -1207,8 +1240,9 @@ module i3c_controller_fsm
     else if (enable_i) begin
       rsp_write_q <= (rsp_post | rsp_write_q) & ~rsp_desc_wready_i;
       if (rsp_post) begin
-        rsp.err_status  <= rsp_info.dec_err  ? ErrStatus_NotSupported :
-                           rsp_info.nack_det ? ErrStatus_NACK : trx_rsp_i.err_status;
+        rsp.err_status  <= rsp_info.dec_abt  ? ErrStatus_HCAborted    :
+                           rsp_info.dec_err  ? ErrStatus_NotSupported :
+                           rsp_info.nack_det ? ErrStatus_NACK         : trx_rsp_i.err_status;
         rsp.tid         <= rsp_info.tid;
         rsp.reserved    <= 'b0;  // Not used; pacify synthesis.
         // TODO(#31304): The reported `DATA_LENGTH` field can be incorrect for early-terminated/
@@ -1222,7 +1256,7 @@ module i3c_controller_fsm
   // Construction of the next response to post.
   rsp_info_t rsp_next;
   always_comb begin : gen_rsp_next
-    logic cmd_acked, dec_err;
+    logic cmd_acked, dec_err1, dec_abt, dec_err2;
     logic bcst_priv;
 
     // A new response cannot coincide with the posting or dropping of the previous one because
@@ -1230,14 +1264,20 @@ module i3c_controller_fsm
     rsp_next = rsp_info;
     if (rsp_posted | rsp_drop) rsp_next.pending = 1'b0;
 
-    dec_err = &{state_q == Idle, !direct_drive, !disable_now, cmd_reject} | (state_q == CmdDecErr);
+    // Command Aborting takes precedence over stage 2 command decoding error, but not stage 1
+    // because if stage 1 checks fail we can't trust the TOC field.
+    dec_err1 = &{state_q == Idle, !direct_drive, !disable_now, cmd_reject};
+    dec_abt  = &{state_q == Idle, !direct_drive, !disable_now, cmd_abort} | (state_q == CmdDecAbt);
+    dec_err2 =  (state_q == CmdDecErr);
+
     cmd_acked = &{state_q == WaitAckb, trx_avalid_i, !trx_arb_i.nack};
     // Is this acknowledgement for the Arbitrable I3C Broadcast Address of a Private SDR transfer?
     bcst_priv = &{cmd_attrs.addr_bcst, ~cmd_attrs.is_ccc, ~cmd_attrs.ddr};
 
-    if (|{cmd_acked & ~bcst_priv, dec_err, cmd_nack_excess}) begin
+    if (|{cmd_acked & ~bcst_priv, dec_err1, dec_abt, dec_err2, cmd_nack_excess}) begin
       rsp_next.pending  = 1'b1;
-      rsp_next.dec_err  = dec_err;
+      rsp_next.dec_err  = dec_err1 | (dec_err2 & ~dec_abt);
+      rsp_next.dec_abt  = dec_abt & ~dec_err1;
       rsp_next.nack_det = cmd_nack_excess;
       // Write Response On Completion; Response Status required?
       // - responses are optional only for successful write transfers.
@@ -1306,7 +1346,7 @@ module i3c_controller_fsm
         // Hot-Join requests do not consult the DAT cache and cannot be rejected.
         ibi_stat_desc.ibi_sts     = nacked;
         // CRR and Hot-Join requests shall always return 1'b0 for these two fields (HCI 8.6.3).
-        ibi_stat_desc.error       = (trx_rsp_i.err_status != ErrStatus_OK) & ~ibi_capt_crr_hj;
+        ibi_stat_desc.error       = (trx_rsp_i.err_status != ErrStatus_SUCCESS) & ~ibi_capt_crr_hj;
         ibi_stat_desc.last_status = ibi_rlast & ~ibi_capt_crr_hj;
       end
       // Notes: IBIStatus_StbyCrBastCCC required when Controller Role Handoff is implemented.
@@ -1413,7 +1453,6 @@ module i3c_controller_fsm
 
   // TODO(#31305): We should also report data loss somehow.
   // wire ibi_stat_loss = ;
-  // wire ibi_data_loss = ;
 
   // ----------------------------------------- DAT Cache -------------------------------------------
 

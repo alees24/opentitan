@@ -65,6 +65,7 @@ filesets:
       - rtl/i3c_target_ext.sv
       - rtl/i3c_target_fsm.sv
       - rtl/i3c_target_rst.sv
+      - rtl/i3c_target_state.sv
       - rtl/i3c_target.sv
       - rtl/i3c_target_trx.sv
       - rtl/i3c_targ_start_req.sv
