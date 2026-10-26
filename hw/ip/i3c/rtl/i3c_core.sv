@@ -370,9 +370,11 @@ module i3c_core
   assign scl_hk_en_o = reg2hw_i.phy_config.scl_hk_en.q;
   assign sda_hk_en_o = reg2hw_i.phy_config.sda_hk_en.q;
 
-  // List of blocked addresses with which neither the Controller nor the Target shall communicate;
-  // this is a safeguard against I2C devices that may use clock-stretching, but may also be of use
-  // diagnostically.
+  // List of blocked addresses with which the Controller shall not initiate communication; this is a
+  // safeguard against I2C devices that may use clock-stretching, but may also be of use
+  // diagnostically. The Target logic is unaffected since it only drives out its assigned
+  // address(es), making it the responsibility of the driver software and the I3C Controller to
+  // prevent collisions.
   logic [6:0] addr_blocked[NumBlocked];
   logic [6:0] mask_blocked[NumBlocked];  // Masks determine which address bits are tested.
   assign addr_blocked[1] = reg2hw_i.blocked_addr.addr1;
@@ -678,11 +680,11 @@ module i3c_core
   // Suspend IBI Transmission from target; hardware only ever sets the 'suspended' bit.
   assign hw2reg_o.targ_pio_control.ibi_suspended.d = 1'b1;
   // Abort clearing.
-  // - the `abort` bit of a non-existing VT self-clears, though software should not be using it.
   logic [NumTargets-1:0] targ_abort_clr;
+  wire  [MaxTargets-1:0] maxtarg_abort_clr = MaxTargets'(targ_abort_clr);
   assign hw2reg_o.targ_pio_control.abort.de = |targ_abort_clr;
-  assign hw2reg_o.targ_pio_control.abort.d  = reg2hw_i.targ_pio_control.abort.q
-                                            & MaxTargets'(~targ_abort_clr);
+  assign hw2reg_o.targ_pio_control.abort.d  = reg2hw_i.targ_pio_control.abort.q &
+                                             ~maxtarg_abort_clr;
   assign hw2reg_o.targ_pio_control.ibi_abort.d = 1'b0;  // Hardware only ever clears the 'abort'.
 
   // Shared configuration/status for all Virtual Targets.
@@ -1083,7 +1085,7 @@ module i3c_core
   assign fifo_rst[FIFO_RxBuf]  = (reg2hw_i.reset_control.rx_fifo_rst.qe &
                                   reg2hw_i.reset_control.rx_fifo_rst.q) | hci_buf_clear;
 
-  // Target-side FIFOs may be set under software control; for the transmission paths they must be
+  // Target-side FIFOs may be reset under software control; for the transmission paths they must be
   // suspended. For the receive path it is the responsibility of software to ensure that reset is
   // used only as documented.
   assign fifo_rst[FIFO_RxTarg]    = (reg2hw_i.targ_pio_control.rxbuf_clear.qe &
@@ -2320,7 +2322,7 @@ module i3c_core
     reg2hw_i.targ_intr_force.rx_buffer_ovf_force.qe,
     reg2hw_i.targ_intr_force.rx_desc_ready_force.qe, reg2hw_i.targ_intr_force.te_force.qe,
     reg2hw_i.targ_intr_force.transfer_abort_force.qe,
-    reg2hw_i.targ_intr_force.transfer_err_force.qe,
+    reg2hw_i.targ_intr_force.transfer_err_force.qe, reg2hw_i.targ_intr_force.rx_desc_ovf_force.qe,
     reg2hw_i.targ_intr_force.tx0_desc_ready_force.qe, reg2hw_i.targ_intr_force.tx0_thld_force.qe,
     reg2hw_i.targ_intr_force.tx1_desc_ready_force.qe, reg2hw_i.targ_intr_force.tx1_thld_force.qe,
     reg2hw_i.targ_intr_force.tx2_desc_ready_force.qe, reg2hw_i.targ_intr_force.tx2_thld_force.qe,

@@ -8,6 +8,7 @@
 module i3c_controller_fsm
   import i3c_controller_pkg::*;
   import i3c_fifo_pkg::*;
+  import i3c_hci_pkg::*;
   import i3c_pkg::*;
   import i3c_reg_pkg::*;
 #(
@@ -191,6 +192,47 @@ module i3c_controller_fsm
   logic pio_bcst_addr_en;
   wire use_bcst_addr = pio_bcst_addr_en | hc_control_i.iba_include.d;  // hwext, so use `d`.
 
+  wire use_auto_cmd = 1'b0;
+
+  // Auto-Command descriptor.
+  // - response to an IBI that matches against the Target's Auto-Command properties.
+  // - automatic issue of DISEC after rejecting an IBI request.
+  i3c_xfer_cmd_desc_t cmd_auto;
+  i3c_xfer_mode_e autocmd_mode;
+  logic [7:0] autocmd_code;
+  logic autocmd_fetch;
+  logic [7:0] disec_mask;
+  // TODO: This shall come from the IBI request....migrate down file.
+  assign disec_mask = 8'h01;
+  always_comb begin
+    cmd_auto = '0;  // Most of the fields are zero.
+    cmd_auto.cmd_reg.cmd_attr = autocmd_fetch ? CmdAttr_RegTransfer : CmdAttr_ImmTransfer;
+    if (autocmd_fetch) begin
+      // Use a Regular Transfer for Auto-Command read operations.
+      cmd_auto.cmd_reg.cmd       = i3c_ccc_e'(autocmd_code);
+      cmd_auto.cmd_reg.cp        = 1'b1;
+      cmd_auto.cmd_reg.dev_index = '0;  // TODO: We need this from the IBI DAT cache lookup.
+      cmd_auto.cmd_reg.mode      = i3c_xfer_mode_e'(autocmd_mode);
+      cmd_auto.cmd_reg.rnw       = 1'b1;
+      cmd_auto.cmd_reg.toc       = 1'b1;
+      // Set the data length to the maximum value so that we keep issuing SDR read requests
+      // and we do not artificially limit the maximum length of the IBI payload; HDR-DDR supports
+      // only even length transfers.
+      cmd_auto.cmd_reg.data_length = {15'h7fff, autocmd_mode != XferMode_HDRDDR};
+    end else begin
+      // DISEC is most simply sent as an Immediate Tranfser command because this can carry the
+      // write data within the command descriptor.
+      cmd_auto.cmd_imm.cmd         = DISEC;
+      cmd_auto.cmd_imm.cp          = 1'b1;
+      cmd_auto.cmd_imm.dev_index   = '0;  // TODO: We're going to have to replace the DA.
+      cmd_auto.cmd_imm.dtt         = 3'd1;
+      cmd_auto.cmd_imm.mode        = XferMode_SDR0;
+       // RnW remains as zero (write).
+      cmd_auto.cmd_imm.toc         = 1'b1;
+      cmd_auto.cmd_imm.data_byte_1 = disec_mask;
+    end
+  end
+
   // Interpretations of the raw Command Descriptor DWORDs.
   i3c_xfer_cmd_intern_ctrl_t cmd_intn;
   i3c_xfer_cmd_addr_assgn_t cmd_daa;
@@ -204,6 +246,9 @@ module i3c_controller_fsm
   // Command Descriptor fields/properties.
   // - derived combinationally from the current Command Descriptor; no additional storage.
   i3c_ctrl_cmd_attrs_t cmd_attrs;
+  // Some helpers indicating the type of Command Descriptor; just for brevity.
+  wire cmd_is_addr_assgn = (cmd_attrs.attr == CmdAttr_AddrAssignment);
+  wire cmd_is_intn_ctrl  = (cmd_attrs.attr == CmdAttr_InternalCtrl);
 
   // Device Address Table entry.
   // - a single command descriptor may involve the reading and use of multiple DAT entries.
@@ -215,13 +260,19 @@ module i3c_controller_fsm
   i3c_cmd_decode #(
     .NumBlocked    (NumBlocked)      // Number of blocked address settings supported.
   ) u_cmd_decode (
-    // Current command state, for phase-dependent command properties.
+    // Current command state, for the Command Queue only.
+    // - for phase-dependent command properties.
     .cmd_state_i    (cmd_state),
+
     // Device Address Table entry; the transfer mode depends upon this.
     .dat_entry_i    (dat_entry),
 
+    // Auto-Command handling/DISEC generation?
+    .use_auto_i     (use_auto_cmd),
     // Raw command descriptor DWORDs from the Command Queue.
     .cmd_queue_i    (cmd_raw),
+    // Auto command descriptor.
+    .cmd_auto_i     (cmd_auto),
 
     // Configuration.
     .use_bcst_addr_i(use_bcst_addr),
@@ -231,7 +282,7 @@ module i3c_controller_fsm
     // Initial validity check of a Command Descriptor.
     .init_ok_o      (cmd_init_ok),
 
-    // Command attributes, derived combinationally from the Command Descriptor.
+    // Command attributes, derived combinationally from the current Command Descriptor.
     .cmd_attrs_o    (cmd_attrs),
 
     // Interpretations of the input Command Descriptor.
@@ -363,20 +414,21 @@ module i3c_controller_fsm
   // Transfer mode for IBI payload fetch.
   i3c_xfer_mode_e ibi_xfer_mode;
 
-  // TODO(#31304): Auto-Command behavior is presently not implemented.
+  // TODO: Capture the `autocmd_fetch` decision as the MDB is received.
   logic [7:0] mdb;
   assign mdb = rx_data[7:0];
 
   // Auto-Command behavior (HCI 6.11).
-  wire autocmd_fetch = ibi_payload & ((mdb & dat_entry.autocmd_mask) == dat_entry.autocmd_value);
+  assign autocmd_fetch = ibi_payload & ((mdb & dat_entry.autocmd_mask) == dat_entry.autocmd_value);
+  // Transfer mode to be used for Auto-Command reads.
+  assign autocmd_mode = i3c_xfer_mode_e'(dat_entry.autocmd_mode);
   // AUTOCMD_HDR_CODE is sanitized as per HCI 6.11.2 to ensure that it is a Read transfer.
-  logic [7:0] autocmd_code;
   assign autocmd_code = dat_entry.autocmd_hdr_code[58] ? dat_entry.autocmd_hdr_code : 8'h80;
 
   // Command Queue enabled?
   // - software may choose to Run/Stop PIO Command Queue handling at any point.
   // - do not start command processing either when Disabled or when Abort requested.
-  // - note that there are two Abort mechanisms (Controller-global and PIO-local).
+  // - TODO(#31304): note that there are two Abort mechanisms (Controller-global and PIO-local).
   wire cmd_enabled = reg2hw_i.pio_control.enable.q & reg2hw_i.pio_control.rs.q &
                     !reg2hw_i.pio_control.abort.q & !hc_control_i.abort.d;
 
@@ -442,6 +494,27 @@ module i3c_controller_fsm
 
   logic hj_crr_captured;
 
+  /* TODO(#31304): Common Command Code handling.
+  CCC handling needs to be a higher-level state machine, steering the regular state machine;
+  this minimises any logic duplication.
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+      // ---- Common Command Codes ---
+      //
+      // The handling of Common Command Codes (CCCs) is performed according to the directions
+      // of the `i3c_controller_ccc` logic. Essentially the state machine at this point is
+      // following a supplied script.
+      //
+      // It will remain in the `CCC` state until this phase of the CCC is completed, successfully
+      // or otherwise. Further address headers are non-arbitrable and no other I3C bus traffic is
+      // permitted to interject.
+        unique case (ccc_rsp.err_status)
+          ErrStatus_SUCCESS: state_d = cmd_attrs.toc ? StopSDR : RepStSDR;
+          default: state_d = ErrFatal;
+        endcase
+  end
+  */
+
   // Transition to the next state?
   // - most of these states are waiting on the occurrence of an external event that occurs on a
   //   slower timescale than the state transitions of the FSM which operates on the main IP clock.
@@ -470,6 +543,7 @@ module i3c_controller_fsm
       RepStSDR,
       CmdArb,
       RepStPriv,
+      CCCFrame,
       CmdAddr,
       SendAckb,
       EnterDDR,
@@ -478,6 +552,8 @@ module i3c_controller_fsm
       CmdWord,
       TxData,
       RxData,
+      RxDChar,
+      TxDAddr,
       TxCRC,
       RxCRC:     proceed = trx_dready_i;  // Transceiver has accepted the request.
 
@@ -554,10 +630,11 @@ module i3c_controller_fsm
       // - validate the command and read from the DAT to discover the properties of the Target.
       CmdBegin: state_d = DATCapt;
       DATCapt:  state_d = CmdDecode;
-      CmdDecode: begin  // TODO(#31304): This probably wants tidying once the logic is finalized.
+      CmdDecode: begin
         if (cmd_dec_err | cmd_addr_blocked) state_d = CmdDecErr;
         else begin
           // Here we need only handle the Command Descriptors that `i3c_cmd_decode` did not reject.
+          // TODO(#31304): This probably wants moving to a separate `always_comb` block when done.
           unique case (cmd_attrs.attr)
             CmdAttr_InternalCtrl: begin
               unique case (cmd_intn.mipi_cmd)
@@ -571,8 +648,9 @@ module i3c_controller_fsm
                     RstOpType_Single: state_d = TargRst;
                     default: state_d = Idle;
                   endcase
-                // TODO(#31304): The following three are not yet implemented.
-                MIPICmd_CtrlSDARecovery,
+                // TODO(#31304): The following is not yet implemented.
+                MIPICmd_CtrlSDARecovery: state_d = CmdDecErr;
+                // TODO(#31308): Standby Controller Role presently not supported.
                 MIPICmd_CtrlHandoff,
                 MIPICmd_AttemptDBR: state_d = CmdDecErr;
                 default: state_d = CmdDecErr;
@@ -596,8 +674,28 @@ module i3c_controller_fsm
       // resulted from starting to work on this command. We must start afresh later. More generally
       // the lifetime and (re)initialization of the members of `cmd_state` needs consideration.
       WaitArb:  state_d = trx_arb_i.arb_lost ? SendAckb : WaitAckb;
-      // Repeated Start (Sr) after using the I3C Broadcast Address to command a Private Read/Write.
+      // Repeated Start (Sr) after using the I3C Broadcast Address to commence a Private Read/Write.
       RepStPriv: state_d = CmdAddr;
+
+      // Common Command Code (CCC, and DEFB where required).
+      CCCFrame: state_d = 1'b1 ? TxData  :
+                          1'b1 ? StopSDR : RepStSDR;
+
+      // ---- Common Command Codes ---
+      //
+      // The handling of Common Command Codes (CCCs) is performed according to the directions
+      // of the `i3c_controller_ccc` logic. Essentially the state machine at this point is
+      // following a supplied script.
+      //
+      // It will remain in the `CCC` state until this phase of the CCC is completed, successfully
+      // or otherwise. Further address headers are non-arbitrable and no other I3C bus traffic is
+      // permitted to interject.
+      CCC: begin
+        unique case (ccc_rsp.err_status)
+          ErrStatus_SUCCESS: state_d = (cmd_attrs.toc & ~|cmd_state.reps_left) ? StopSDR : RepStSDR;
+          default: state_d = ErrFatal;
+        endcase
+      end
 
       // A non-arbitrable header never requires us to send ACK/NACK because there are no contenders.
       CmdAddr:  state_d = WaitAckb;
@@ -608,6 +706,7 @@ module i3c_controller_fsm
              (cmd_attrs.ddr & !curr_ddr) ? EnterDDR :
              // Sr before Private Transfer, after 7'h7e?
              (cmd_attrs.addr_bcst & !cmd_attrs.ddr) ? RepStPriv :
+               (cmd_is_addr_assgn &  cmd_attrs.rnw) ? RxDChar   :
                                       cmd_attrs.rnw ? RxData    : TxData;
 
       // Sending Ack/Nack to the Target when we lost arbitration, or did not contend.
@@ -622,26 +721,21 @@ module i3c_controller_fsm
       RxData:   state_d = (data_last | cmd_state.aborting) ? (cmd_attrs.ddr ? RxCRC   :
                                                               cmd_attrs.toc ? StopSDR : RepStSDR)
                                                            : RxData;
+      // ENTDAA Read phase.
+      // - read device characteristics using Open Drain signaling; no T bits.
+      // - write Dynamic Address and Parity using Open Drain signaling; no intervening Sr.
+      // - ACK/NACK _without Handoff_.
+      RxDChar:  state_d = cmd_state.aborting ? (cmd_attrs.toc ? StopSDR : RepStSDR) :
+                                   data_last ? TxDAddr : RxDChar;
+      TxDAddr:  state_d = WaitDAckb;
+
       TxCRC,
       RxCRC:    state_d = cmd_attrs.toc ? ExitHDR : ReStHDR;
       StopSDR:  state_d = Idle;
-      RepStSDR: state_d = Idle;  // We need this delay to pick up _both_ command words.
-
-      // ---- Common Command Codes ---
-      //
-      // The handling of Common Command Codes (CCCs) is performed according to the directions
-      // of the `i3c_controller_ccc` logic. Essentially the state machine at this point is
-      // following a supplied script.
-      //
-      // It will remain in the `CCC` state until this phase of the CCC is completed, successfully
-      // or otherwise.
-      CCC: begin
-        unique case (ccc_rsp.err_status)
-          ErrStatus_SUCCESS: state_d = cmd_attrs.toc ? StopSDR : RepStSDR;
-          default: state_d = ErrFatal;
-        endcase
-      end
-
+      // When the Command Descriptor _completes_ without sto(P), we need to pick up another by
+      // transitioning through Idle, OR ANOTHER STATE (TODO#(31304)).
+      RepStSDR: state_d = ((trans_type == TransType_CmdDesc) & |cmd_state.reps_left) ? CmdBegin
+                                                                                     : Idle;
       // --- Command Failures ---
       CmdDecErr,
       CmdDecAbt:  state_d = Idle;
@@ -734,7 +828,7 @@ module i3c_controller_fsm
           Idle: begin
             // Did we initiate this transfer?
             cmd_state.available <= cmd_dispatch;
-            trans_type          <= cmd_dispatch ? TransType_Cmd : TransType_Intr;
+            trans_type          <= cmd_dispatch ? TransType_CmdDesc : TransType_Intr;
           end
           // DAT entry must be captured immediately (see `datf_re_q` below).
           // - note that we also wait here until the result from the previous command has been
@@ -744,9 +838,10 @@ module i3c_controller_fsm
           // we can proceed
           CmdDecode: begin
             if (!cmd_state.started) begin
-              cmd_state.dev_index <= cmd_attrs.dev_index;
-              cmd_state.reps_left <= cmd_attrs.reps_left;
-              cmd_state.retry_cnt <= cmd_attrs.retry_cnt;
+              cmd_state.dev_index   <= cmd_attrs.dev_index;
+              cmd_state.reps_left   <= cmd_attrs.reps_left;
+              cmd_state.retry_cnt   <= cmd_attrs.retry_cnt;
+              cmd_state.phase_first <= 1'b1;
             end
             cmd_state.started <= 1'b1;
             // Deferring the `data_len` initialization until this state, where we wait until any
@@ -808,7 +903,7 @@ module i3c_controller_fsm
             // Commands may be retried a programmable number of times; note that we may have
             // responded to a request from a Target between retries of a command that has previously
             // been NACKed, hence the qualification with `trans_type`.
-            if ((trans_type == TransType_Cmd) & nacked) begin
+            if ((trans_type == TransType_CmdDesc) & nacked) begin
               cmd_state.retry_cnt <= cmd_state.retry_cnt - |cmd_state.retry_cnt;
             end
             cmd_state.rep_start <= 1'b0;
@@ -908,10 +1003,11 @@ module i3c_controller_fsm
   //   the read request from the Command Queue that `cmd_complete` drives.
   wire cmd_trans_done = &{cmd_sdr_done | cmd_ddr_done,
                         ~|cmd_state.retry_cnt || !nacked,  // Retries in response to Nack.
-                        ~|cmd_state.reps_left,             // Iteration within Address Assignment.
+                        ~|cmd_state.reps_left,             // Iteration within CCC commands.
                         trx_dready_i};
   // - Any transfer such as an IBI request that does involve a Command Descriptor shall be excluded.
-  assign cmd_complete = (trans_type == TransType_Cmd) &
+  // TODO(#31304): Likely needs modifying on account of recent rethinking.
+  assign cmd_complete = (trans_type == TransType_CmdDesc) &
                        |{cmd_trans_done,
                         (state_q == TargRst) & trx_dready_i,  // Target Reset internal command.
                         (state_q == CmdDecErr),          // Command rejected during decoding.
@@ -931,7 +1027,7 @@ module i3c_controller_fsm
   assign cmd_nacked_o = &{state_q == WaitAckb, trx_avalid_i, trx_arb_i.nack, |cmd_state.retry_cnt};
 
   // Report an excess NACK count for an attempted Command transfer.
-  assign cmd_nack_excess = &{trans_type == TransType_Cmd, cmd_trans_done, nacked};
+  assign cmd_nack_excess = &{trans_type == TransType_CmdDesc, cmd_trans_done, nacked};
 
   // Reading of data from the Tx buffer.
   // TODO(#31305): Availability check required....must abort transfer if buffer underruns.
@@ -987,7 +1083,8 @@ module i3c_controller_fsm
   // DAT reads are also required, but only for typical non-Broadcast Transfer Commands.
   // - Broadcast CCCs do not require a DAT read.
   // - Internal Control Commands do not require DAT access.
-  assign datf_re = (state_q == CmdBegin) & proceed & (!cmd_attrs.brd_ccc | datf_assign_re);
+  assign datf_re = (state_q == CmdBegin) & proceed &
+                   (datf_assign_re | ~(cmd_is_intn_ctrl | cmd_attrs_brd_ccc));
 
   // Reads from the Device Address Table (DAT) occur for most Commands, but may also occur in
   // response to In-Band Interrupt and Controller-Role Requests.
@@ -1088,6 +1185,9 @@ module i3c_controller_fsm
 
     // Current command state, for any additional information required.
     .cmd_state_i(cmd_state),
+
+    // Command attributes; derived from the command descriptor state.
+    .cmd_attrs_i(cmd_attrs),
 
     // Requests from the Controller FSM.
     .ccc_req_i  (ccc_req),
@@ -1585,14 +1685,6 @@ module i3c_controller_fsm
                                hc_control_i.halt_on_cmd_seq_timeout, hc_control_i.hot_join_ctrl,
                                hc_control_i.i2c_dev_present, hc_control_i.mode_selector,
                                hc_control_i.resume};
-  // - TODO(#31304): blocked addresses are not checked yet.
-  logic unused_blocked;
-  always_comb begin
-    unused_blocked = 1'b0;
-    for (int unsigned b = 0; b < NumBlocked; b++) begin
-      unused_blocked ^= ^{addr_blocked_i[b], mask_blocked_i[b]};
-    end
-  end
   // - buffer status and broadcast writes from the Standby Controller that are not used yet.
   logic unused_buf_status;
   assign unused_buf_status = ^{txbuf_rempty_i, rxbuf_wfull_i, ibi_data_wfull_i,
@@ -1614,8 +1706,8 @@ module i3c_controller_fsm
                              cmd_reg.toc, cmd_reg.wroc, cmd_imm.cmd, cmd_imm.cmd_attr, cmd_imm.cp,
                              cmd_imm.dev_index, cmd_imm.mode, cmd_imm.reserved, cmd_imm.rnw,
                              cmd_imm.tid, cmd_imm.toc, cmd_imm.wroc};
-  // - Controller Role Requests, Auto-Commands and DAT cache hits are not handled yet.
+  // - Controller Role Requests and DAT cache hits are not handled yet.
   logic unused_ibi_handling;
-  assign unused_ibi_handling = ^{crr_reject, autocmd_fetch, autocmd_code, datc_hit};
+  assign unused_ibi_handling = ^{crr_reject, datc_hit};
 
 endmodule

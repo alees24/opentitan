@@ -289,7 +289,6 @@ module i3c_target_ccc
         RData_GETCAP1: rdata[t] = {7'b0, reg2hw_i.targ_control.en_hdr_ddr.q};
         // TODO(#31128): This is quite likely to need revision.
         RData_GETCAP2: rdata[t] = 8'hf2;  // Max support, I3C Basic V1.2.
-        // TODO(#31128): This is quite likely to need revising.
         RData_GETCAP3: rdata[t] = 8'h58;
         RData_GETCAP4: rdata[t] = 8'h00;  // HDR-DDR CCCs _not_ supported.
         RData_TGTSTAT0: rdata[t] = 8'h00;
@@ -493,8 +492,7 @@ module i3c_target_ccc
                                !reg2hw_i.targ_addr[t].dynamic_addr_valid.q));
     // SETDASA and SETNEWDA carry the address in the Dynamic Address Byte, which holds the 7-bit
     // address in Bits[7:1] with Bit[0] set to 1'b0 (Figures 33 and 35).
-    assign dynaddr_d_o[t]  = (ccc == SETAASA) ? reg2hw_i.targ_addr[t].static_addr.q
-                                              : wdata0[7:1];
+    assign dynaddr_d_o[t]  = (ccc == SETAASA) ? reg2hw_i.targ_addr[t].static_addr.q : wdata0[7:1];
   end
 
   // Set Maximum Write/Read/IBI Length.

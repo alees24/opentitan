@@ -7,26 +7,35 @@
 //
 // We are required to detect any 'illegal or invalid combination of fields' in Command Descriptors
 // (TCRI 6.4.1.10).
+//
+// The current Command Descriptor may be from one of the following sources:
+// - HCI Command Queue; descriptor was constructed by the software driver.
+// - Auto-Command handling; internally-constructed descriptor for 'DISEC' after IBI.
 
 module i3c_cmd_decode
   import i3c_consts_pkg::*;
   import i3c_controller_pkg::*;
+  import i3c_hci_pkg::*;
   import i3c_pkg::*;
 #(
   // Number of blocked address settings supported.
-  parameter int unsigned NumBlocked = 2
+  parameter int unsigned NumBlocked = i3c_pkg::NumBlocked
 ) (
   // No requirement for clock or reset.
 
-  // Current command state.
+  // Current command state, for the Command Queue only.
   // - some Command Descriptors require multiple processing phases, separated by a repeated start
   //   (Sr) or HDR Restart; state information from earlier phases must be preserved.
   input  i3c_ctrl_cmd_state_t       cmd_state_i,
   // DAT entry for device-dependent properties.
   input  i3c_dat_mem_t              dat_entry_i,
 
+  // Decode the `Auto Command Descriptor` rather than that from the command queue?
+  input                             use_auto_i,
   // Command Descriptor from the Command Queue.
   input                      [63:0] cmd_queue_i,  // 2 DWORDs.
+  // Auto Command Descriptor (Auto-Command and automatic DISEC commands).
+  input                      [63:0] cmd_auto_i,   // 2 DWORDs.
 
   // Configuration.
   input                             use_bcst_addr_i,
@@ -57,10 +66,11 @@ module i3c_cmd_decode
   // TODO(#31307): Supply additional information?
 );
 
-  // This is likely to be required once we are selecting the input command from multiple sources.
-  // - Auto Command support is expected to be included in a later revision.
+  // The Command Descriptor to be decoded may come from multiple sources:
+  // - Command Queue (supplied by the HCI driver software).
+  // - Auto Command support (includes automatic generation of DISEC after NACKing an IBI).
   // - Scheduled Commands are presently not supported, but they too would be handled here.
-  wire [63:0] cmd_raw = cmd_queue_i;
+  wire [63:0] cmd_raw = use_auto_i ? cmd_auto_i : cmd_queue_i;
 
   // Reinterpret the raw Command Descriptor as each supported type of command.
   // - `cmd_reg_o` is a useful way to access fields that are common to most/all command types.
@@ -133,6 +143,13 @@ module i3c_cmd_decode
     endcase
   end
 
+  // Is this a CCC Command Descriptor that results in two phases?
+  // - Direct Read/Write Command Descriptor conveys both the command phase (CCC+DEFB) and the
+  //   subsequent read/write phase from/to the first address.
+  function automatic logic ccc_dual_phase(input i3c_ctrl_cmd_attrs_t attrs);
+    return attrs.is_ccc & !broadcast_ccc(attrs.ccc);
+  endfunction
+
   // Decoding of additional command information may depend upon the current command state and
   // any DAT entry that has just been read.
   // - this logic may assume that the basic validity checks above (`init_ok_o`) have passed.
@@ -196,6 +213,8 @@ module i3c_cmd_decode
           3'h5, 3'h6, 3'h7: cmd_attrs_o.data_len = 16'(cmd_imm_o.dtt - 3'h5);
           default:          cmd_attrs_o.data_len = 16'(cmd_imm_o.dtt);
         endcase
+        // A single CCC Command Descriptor may describe two phases.
+        if (ccc_dual_phase(cmd_attrs_o)) cmd_attrs_o.reps_left = CmdRepW'('b1);
         if (cmd_imm_o.rnw) err_o = 1'b1;  // Immediate transfers are Write only.
         // Not all Transfer mode values are valid/supported.
         if (!mode_supported(cmd_attrs_o.mode, cmd_attrs_o.i2c)) err_o = 1'b1;
@@ -204,6 +223,8 @@ module i3c_cmd_decode
         cmd_attrs_o.has_defb = cmd_reg_o.dbp;
         cmd_attrs_o.defb     = cmd_reg_o.def_byte;
         cmd_attrs_o.data_len = cmd_reg_o.data_length;
+        // A single CCC Command Descriptor may describe two phases.
+        if (ccc_dual_phase(cmd_attrs_o)) cmd_attrs_o.reps_left = CmdRepW'('b1);
         // Not all Transfer mode values are valid/supported, and zero-length transfers shall be done
         // using Immediate Data Transfer commands.
         if (!mode_supported(cmd_attrs_o.mode, cmd_attrs_o.i2c) || ~|cmd_reg_o.data_length) begin
@@ -269,44 +290,78 @@ module i3c_cmd_decode
 
   // Determine the address to be used for this command phase and whether communication with that
   // address has been blocked.
+  // - this logic is deriving further fields within `cmd_attrs_o`, using those fields set above.
+  // - it now has the information from the DAT entry, where this is required.
   always_comb begin : gen_addr
     logic [NumBlocked:0] addr_blocked;  // One extra for the invalid I3C addresses.
-    logic [6:0] addr_cand;
+    logic [6:0] addr_check;  // The address to be checked.
+    logic [6:0] addr_cand;   // Address used in the (non-)arbitrable address header.
+    logic entdaa_read;
+    logic rnw_cand;
+
+    entdaa_read = &{cmd_attrs_o.is_ccc, cmd_attrs_o.ccc == ENTDAA, cmd_state_i.rep_start};
 
     // Using I3C Broadcast Address to commence a transfer?
-    // - do NOT use the I3C Broadcast Address after a Repeated Start (Sr); for either CCC or Private
-    //   transfers. TODO(#31304): ENTDAA is an exception here.
+    // - do NOT use the I3C Broadcast Address after a Repeated Start (Sr); for either Private
+    //   transfers or CCC handling, except if the latter is ENTDAA.
     cmd_attrs_o.addr_bcst = |{cmd_attrs_o.is_ccc, cmd_attrs_o.ddr, use_bcst_addr_i} &
-                             ~cmd_state_i.rep_start;
+                             ~(cmd_state_i.rep_start & ~entdaa_read) &
+                             ~cmd_attrs_o.i2c;
+    // The I3C Broadcast Address is followed by 'W' unless it's an ENTDAA read phase (see above).
+    rnw_cand = cmd_attrs_o.rnw & (entdaa_read | ~cmd_attrs_o.addr_bcst);
 
     // Candidate Target/Group/I3C Broadcast Address.
-    /// - I3C Broadcast address is used for SDR Private Transfers iff explicitly requested.
-    addr_cand = dat_entry_i.dynamic_address[22:16];
+    // - I3C Broadcast address is used for SDR Private Transfers iff explicitly requested.
+    addr_cand  = dat_entry_i.dynamic_address[22:16];
     if (cmd_attrs_o.addr_bcst) begin
       addr_cand = Addr_Broadcast;
     end else begin
       // SETDASA is always sent to the programmed static address, and I2C devices have only static
       // addresses.
       if (cmd_attrs_o.ccc == SETDASA || cmd_attrs_o.i2c) begin  // HCI 6.3.1
-        addr_cand = dat_entry_i.static_address;
+        addr_cand  = dat_entry_i.static_address;
+        addr_check = dat_entry_i.static_address;
       end
     end
 
+    // Address to be checked against blocked addresses.
+    // - when issuing the read phase of a DAA command, there is scant reason to check the I3C
+    //   Broadcast Address, but we can here gain a bit of extra robustness against driver error by
+    //   preventing the assignment of an invalid dynamic address to a Target.
+    // - it is also important to check the address of a Private Read/Write even though it has been
+    //   prefixed by the I3C Broadcast Address.
+    addr_check = dat_entry_i.dynamic_address[22:16];
+
     // Test whether this is _always_ an invalid address for the Controller to access, prohibited
-    // by the I3C spec
-    addr_blocked[NumBlocked] = invalid_addr(addr_cand, 1'b0);
+    // by the specification (Table 10).
+    addr_blocked[NumBlocked] = invalid_addr(addr_check, 1'b0);
 
     // Address blocking prevents addressing of software-blacklisted addresses, e.g., I2C Targets
     // that may try to employ clock stretching.
     for (int unsigned b = 0; b < NumBlocked; b++) begin
-      addr_blocked[b] = ((addr_cand & mask_blocked_i[b]) == addr_blocked_i[b]);
+      addr_blocked[b] = ((addr_check & mask_blocked_i[b]) == addr_blocked_i[b]);
     end
 
     // Indicate to the core FSM logic that the transfer shall not proceed.
-    blocked_o = |addr_blocked;
-    // Address to be used, as required by CmdArb/CmdAddr, _iff not blocked_.
-    // - always W for I3C Broadcast Address) TODO(#31304): ENTDAA is an exception here.
-    cmd_attrs_o.addr_rnw = {addr_cand, cmd_attrs_o.rnw & ~cmd_attrs_o.addr_bcst};
+    unique case (cmd_attrs_o.attr)
+      // The standard Command Descriptors all perform transfers to/from an address.
+      CmdAttr_RegTransfer,
+      CmdAttr_ImmTransfer,
+      CmdAttr_ComboTransfer,
+      // Whilst address assignment does not target a specific address, we do check the one supplied.
+      CmdAttr_AddrAssignment: blocked_o = |addr_blocked;
+      // Internal Control Commands do not involve transfer(s) to a specified address.
+      // TODO(#31308): We could catch invalid dynamic addresses here if we supported Controller Role
+      // Handoff (HCI Table 142).
+      CmdAttr_InternalCtrl:   blocked_o = 1'b0;
+      // Unsupported/unrecognised command types; `err_o` takes precedence, and we don't know what
+      // address, if any, is relevant anyway.
+      default: blocked_o = 1'b0;
+    endcase
+
+    // Address to be used, as required by CmdArb/CmdAddr, _iff not blocked_, and only by those
+    // commands that actually require an address.
+    cmd_attrs_o.addr_rnw = {addr_cand, rnw_cand};
   end
 
   // Signals that the logic does not use (yet).

@@ -459,7 +459,7 @@
         }
         { bits:     "8",
           name:     "EN_HDR_DDR",
-          desc:     '''Enable HDR-DDR mode signaling.
+          desc:     '''Declare support for HDR-DDR mode in the GETCAPS response of the Target.
 
                     HDR-DDR mode should normally be enabled, and the ability for software to deactivate HDR-DDR mode is included only as a contingency.
                     This configuration bit shall be modified only before the Target is enabled.
@@ -537,7 +537,10 @@
           name:     "CONNECTED",
           desc:     "Indicates whether the Target logic is connected to the bus and monitoring traffic.",
           hwaccess: "hwo",
-          resval:   "0"
+          resval:   "0",
+          tags:   [// Live bus-connection state of the Target transceiver.
+                   // The reset value is deterministic, so only the non-init tests exclude it.
+                   "excl:CsrNonInitTests:CsrExclCheck"]
         }
         { bits:     "28:27",
           name:     "TARGETS",
@@ -572,11 +575,12 @@
           name:     "RSTACT",
           desc:     '''Configured Target Reset action.
 
-                    The default response to receipt of the Target Reset pattern is a reset of the I3C Peripheral only.
+                    The reset value of this field is 'NoReset' (0) as per the HCI Standby Controller specification.
+                    When enabled, the default response to receipt of the Target Reset pattern is a reset of the I3C Peripheral only.
                     This response must still be enabled by software, however.
                     ''',
           hwaccess: "hwo",
-          resval:   "1"
+          resval:   "0"
         }
         { bits:     "15",
           name:     "EXT_PRESENT",
@@ -727,12 +731,12 @@
       fields: [
         { bits:   "21",
           name:   "RST_TARGET",
-          desc:   "Indicates that a Whole Target reset requst was received.",
+          desc:   "Indicates that a Whole Target reset request was received.",
           resval: "0"
         }
         { bits:   "20",
           name:   "RST_PERIPH",
-          desc:   "Indicates that a Peripheral request request was received.",
+          desc:   "Indicates that a Peripheral reset request was received.",
           resval: "0"
         }
         { bits:   "16",
@@ -1201,7 +1205,7 @@
           desc:   '''Address mask for the second set of blocked addresses.
 
                   This mask determines which bits of the device address will be tested and matched against the address in 'ADDR1'.
-                  I2C devices are commonly configured with one of a small set of static addresses, differing in only one two address bits.
+                  I2C devices are commonly configured with one of a small set of static addresses, differing in only one or two address bits.
                   '''
           resval: "0"
         }
@@ -1220,7 +1224,7 @@
           desc:   '''Address mask for the first set of blocked addresses.
 
                   This mask determines which bits of the device address will be tested and matched against the address in 'ADDR0'.
-                  I2C devices are commonly configured with one of a small set of static addresses, differing in only one two address bits.
+                  I2C devices are commonly configured with one of a small set of static addresses, differing in only one or two address bits.
                   '''
           resval: "0"
         }
@@ -4259,7 +4263,7 @@
           desc:     '''Reset the reception buffers.
 
                     If software writes a '1' to a bit, then the reception data buffer and descriptor queue will both be emptied.
-                    This is a recovery mechanism that shall only be used when the Target is unable to receive new transfers, e.g., when handling an error condition or when there are no Virtual Targets are enabled.
+                    This is a recovery mechanism that shall only be used when the Target is unable to receive new transfers, e.g., when handling an error condition or when there are no Virtual Targets enabled.
                     '''
           swaccess: "wo",
           hwaccess: "hro",

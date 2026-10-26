@@ -23,8 +23,14 @@ package i3c_async_event_pkg;
     AsyncEv_Count
   } i3c_tti_async_event_e;
 
+  // Maximum number of Bus Events that can be supported without changing the software-visible
+  // `i3c_tti_async_busevt_t` descriptor. This leaves some space for additional events to be added
+  // without breaking compatibility.
+  parameter int unsigned TTIBusEvMax = 4'hc;
+
   // The I3C Bus Events reported via the Asynchronous Event Queue.
   // - these are bit _indexes_, not event codes.
+  // - bus events are reported as a bitfield.
   typedef enum logic [3:0] {
     TTIBusEv_ReadNoSCL   = 4'h0,  // No change in SCL for > 150us during a Read Transfer.
     TTIBusEv_DeadBus     = 4'h1,  // No response to Start request when the bus was idle.
@@ -38,6 +44,7 @@ package i3c_async_event_pkg;
 
     // Sentinel gives the number of bus event types.
     TTIBusEv_Count
+    // Bus events 8-11 are reserved for future use.
   } i3c_tti_bus_event_e;
 
   // CCC Notification reported as an Asynchronous Event.
@@ -87,11 +94,13 @@ package i3c_async_event_pkg;
     logic          [27:0] reserved;
   } i3c_tti_async_ibi_susp_t;
 
-  // Bus Event reported as an Asynchronous Event.
+  // Bus Event(s) reported as an Asynchronous Event.
+  // - the bitfield of events is at a fixed location to maintain software compatibility with future
+  //   hardware revisions.
   typedef struct packed {
-    i3c_tti_async_event_e code;      // Specifies the type of this descriptor.
-    logic          [11:0] evt;       // The Bus Event(s) observed, as a bitfield.
-    logic          [15:0] reserved;
+    i3c_tti_async_event_e   code;  // Specifies the type of this descriptor.
+    logic [TTIBusEvMax-1:0] evt;   // The Bus Event(s) observed, as a bitfield.
+    logic            [15:0] reserved;
   } i3c_tti_async_busevt_t;
 
   // Asynchronous Event Descriptor; single DWORD.

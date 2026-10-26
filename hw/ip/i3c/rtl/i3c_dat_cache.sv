@@ -7,6 +7,7 @@
 module i3c_dat_cache
   import i3c_consts_pkg::*;
   import i3c_controller_pkg::*;
+  import i3c_hci_pkg::*;
   import i3c_pkg::*;
 #(
   // Number of entries in the DAT.
@@ -40,10 +41,11 @@ module i3c_dat_cache
   input                   re_i,           // Read request.
   output                  rgnt_o,         // Proceed; decision available.
   input             [6:0] raddr_i,        // Dynamic address.
-  output logic            rhit_o,         // Device information available?
-  output logic            ibi_payload_o,
-  output logic            ibi_reject_o,
-  output logic            crr_reject_o,
+  output                  rhit_o,         // Device information available?
+  output   [DATAddrW-1:0] ridx_o,         // The index of the matching entry, iff `rhit_o`.
+  output                  ibi_payload_o,
+  output                  ibi_reject_o,
+  output                  crr_reject_o,
   output i3c_xfer_mode_e  xfer_mode_o,
 
   // Interface to DAT memory for walking the table.
@@ -90,8 +92,18 @@ module i3c_dat_cache
   //   address and/or attributes, or indeed invalidate an entry by setting the dynamic address to
   //   AddrUnused (0).
   logic [CacheSize-1:0] rmatched;
-  for (genvar e = 0; e < CacheSize; e++) begin : gen_rmatched
-    assign rmatched[e] = &{re_i, raddr_valid, raddr_i == entry[e].dyn_addr};
+  logic [DATAddrW-1:0] ridx;
+  always_comb begin
+    // This initial value does not matter; use of `ridx_o` shall be qualified by `rhit_o`.
+    ridx = 'b0;
+    // Match against lower entries with higher priority since these are more likely to be current;
+    // it is, however, the responsibility of driver software to invalidate stale entries.
+    for (int e = CacheSize - 1; e >= 0; e--) begin
+      logic addr_matches;
+      addr_matches = (raddr_i == entry[e].dyn_addr);
+      rmatched[e] = &{re_i, raddr_valid, addr_matches};
+      if (addr_matches) ridx = DATAddrW'(e);
+    end
   end
 
   // Request may be granted immediately with this simple implementation.

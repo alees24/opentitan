@@ -24,7 +24,6 @@
 module i3c_target_trx
   import i3c_io_pkg::*;
   import i3c_pkg::*;
-  import i3c_reg_pkg::*;
   import i3c_target_pkg::*;
   import i3c_tti_pkg::Log2MT;
 #(
@@ -96,6 +95,7 @@ module i3c_target_trx
 );
 
   import i3c_consts_pkg::*;
+  import i3c_reg_pkg::*;
   import i3c_targ_ccc_pkg::*;
   import i3c_tti_pkg::*;
 
@@ -261,12 +261,13 @@ module i3c_target_trx
   logic            [6:0] addr_recvd;  // Target/Group being addressed.
   logic                  is_group;    // Is this a group address?
   logic    [TargIDW-1:0] targ_id;     // Individual Target addressed, _NoMatch or _Broadcast.
-  logic [NumTargets-1:0] targ_set;    // Set of addressed target(s), valid for Group Addressing too.
+  logic [MaxTargets-1:0] targ_set;    // Set of addressed target(s), valid for Group Addressing too.
   logic                  capture_all; // Capturing all traffic? TODO(#31337): presently unused.
   always_comb begin : addr_matching
     // Disabled targets and those without a valid address shall ignore all traffic; i.e., they do
-    // not even receive and respond to broadcast writes.
-    logic [NumTargets-1:0] contenders;
+    // not even receive and respond to broadcast writes. Virtual Targets that this instance does not
+    // implement are excluded from `contenders` - and thus out of every `targ_set` derived from it.
+    logic [MaxTargets-1:0] contenders;
     contenders = '0;
     for (int unsigned t = 0; t < NumTargets; t++) begin
       contenders[t] = targ_dev_i[t].en & targ_dev_i[t].addr_valid;
@@ -287,14 +288,14 @@ module i3c_target_trx
     // Private Read/Write operations.
     if (addr_recvd == Addr_Broadcast) begin
       targ_id  = TargIDBroadcast;
-      targ_set = contenders;
+      targ_set = contenders;  // Enabled, addressable Targets only.
     end else begin
       // Test the group addresses.
       // - as a diagnostic feature, a group address of zero matches against all observed traffic.
       for (int g = NumGroups - 1; g >= 0; g--) begin
         if (grp_addr_i[g].valid &&  // Group configuration valid?
            ((addr_recvd == grp_addr_i[g].addr && !ignore_ccc) || ~|grp_addr_i[g].addr)) begin
-          targ_set = grp_addr_i[g].targets[NumTargets-1:0] & contenders;
+          targ_set = grp_addr_i[g].targets & contenders;
           targ_id  = TargIDNoMatch;
           is_group = 1'b1;
           capture_all = ~|grp_addr_i[g].addr;
@@ -307,7 +308,7 @@ module i3c_target_trx
   // - these properties are persistent and may be used during transfer processing.
   typedef struct packed {
     logic     [TargIDW-1:0] targ_id;   // Target ID (this is _not_ the I3C Address).
-    logic  [NumTargets-1:0] targ_set;  // Set of addressed targets, supporting Group Addresses too.
+    logic  [MaxTargets-1:0] targ_set;  // Set of addressed targets, supporting Group Addresses too.
     logic             [6:0] addr;      // Addressed target/group.
     logic                   is_group;  // Is this a group address?
     logic                   rnw;       // Read, not Write, for Private transfers or CCC segments.
@@ -345,7 +346,7 @@ module i3c_target_trx
   end
 
   // Target ID; this is either the unique ID number of a configured Target, or zero, to ensure it
-  // can be safely used as index into all data structures that have `NumTargets` entries.
+  // can be safely used as an index into all data structures that have `NumTargets` entries.
   logic [TargIDW-1:0] sel_targ_id;
   assign sel_targ_id = (trans.targ_id < NumTargets) ? trans.targ_id : '0;
 
@@ -1149,11 +1150,7 @@ module i3c_target_trx
   // TODO(#31337): Request/response interface is incomplete at present; just capture the received
   // word here for checking.
   for (genvar t = 0; t < NumTargets; t++) begin : gen_dready
-    if (t < NumTargets) begin : gen_vt_dready
-      assign trx_dready_o[t] = tx_starting & (t == trans.targ_id) & !ccc_command;
-    end else begin : gen_no_vt_dready
-      assign trx_dready_o[t] = 1'b0;  // Virtual Target not present.
-    end
+    assign trx_dready_o[t] = tx_starting & (t == trans.targ_id) & !ccc_command;
   end
   // TODO(#31337): Re Direct GET read data:
   // Note: we consume data from all targets rather than the specific one that is transmitting
@@ -1183,12 +1180,12 @@ module i3c_target_trx
     // everything needs to be captured during the final bit, re-timing now-stale data if necessary?
     if (ccc_state_q == CCC_SegAddr) begin
       rxd.targ_id   = targ_id;
-      rxd.targ_set  = MaxTargets'(targ_set);
+      rxd.targ_set  = targ_set;
       rxd.addr      = addr_recvd;
       rxd.is_group  = is_group;
     end else begin
       rxd.targ_id   = trans.targ_id;
-      rxd.targ_set  = MaxTargets'(trans.targ_set);
+      rxd.targ_set  = trans.targ_set;
       rxd.addr      = trans.addr;
       rxd.is_group  = trans.is_group;
     end
@@ -1245,6 +1242,21 @@ module i3c_target_trx
       unused_targ_dev ^= ^{targ_dev_i[t].en_early_crc, targ_dev_i[t].en_write_nack,
                            targ_dev_i[t].en_write_term, trx_dreq_i[t].rlast[1],
                            trx_ctreq_i.rlast[t][1]};
+    end
+    // Packaged structure `i3c_targ_trx_txc_t` is defined in terms of `MaxTargets`, though only
+    // `NumTargets` channels are required/valid.
+    for (int unsigned t = NumTargets; t < MaxTargets; t++) begin
+      unused_targ_dev ^= trx_ctreq_i.rlast[t][1];
+    end
+  end
+  // - group descriptions are defined in a package, including non-existent Virtual Targets.
+  logic unused_grp_targs;
+  always_comb begin
+    unused_grp_targs = 1'b0;
+    for (int unsigned g = 0; g < NumGroups; g++) begin
+      for (int unsigned t = NumTargets; t < MaxTargets; t++) begin
+        unused_grp_targs ^= grp_addr_i[g].targets[t];
+      end
     end
   end
   // - TODO(#31035): HDR Restart is not handled yet.

@@ -315,7 +315,7 @@ module i3c_target_fsm
   // - for each transmission path, the data buffer is at the even-numbered index and the descriptor
   //   queue is odd-indexed.
   // - IBI is source 0, so that it does not vary with the number of configured targets.
-  localparam int unsigned SinkBuffers = (NumTargets + 1) * 2;  // One extra pair for IBI; offset 0.
+  localparam int unsigned SinkBuffers = (MaxTargets + 1) * 2;  // One extra pair for IBI; offset 0.
   logic [SinkBuffers-1:0] sink_rready;
 
   // Are there any Pending Read Notifications?
@@ -401,7 +401,7 @@ module i3c_target_fsm
 
     // Collect DWORD from buffer.
     assign buf_rready_o[t] = &{enable_i, tx_rvalid, !unit_valid, tx_start | tx_active} |
-                              (enable_i & sink_rready[2 * (t + 1)]);
+                              (enable_i & sink_rready[2 * (t + 1)]);  // Data Sink.
 
     // Since we are driving data into an irregularly-clocked domain, new data is supplied by
     // inverting a toggle signal and waiting for it to be echoed back to us.
@@ -1314,6 +1314,11 @@ module i3c_target_fsm
   end
   assign sink_empty[0] = ibi_rempty_i;
   assign sink_empty[1] = ibi_desc_rempty_i;
+  // Virtual Targets that are not present.
+  for (genvar t = NumTargets; t < MaxTargets; t++) begin : gen_sink_no_vt
+    assign sink_rvalid[2*t + 3 -: 2] = 2'b00;
+    assign sink_empty[2*t + 3 -: 2] = 2'b11;  // This will raise an error if sw attempts to use it.
+  end
 
   // Software starts the data sink operation.
   wire sink_start = reg2hw_i.targ_sink_control.start.qe & reg2hw_i.targ_sink_control.start.q;
@@ -1398,12 +1403,22 @@ module i3c_target_fsm
     unused_targ_dev = 1'b0;
     for (int unsigned t = 0; t < NumTargets; t++) begin
       unused_targ_dev ^= ^{targ_info[t], tx_desc[t].prn.reserved, tx_desc[t].prn.tid,
-                           tx_desc[t].prn.wroc, tx_desc_rused_i[t], tx_desc_ravail_i[t]};
+                           tx_desc[t].prn.wroc, tx_desc_rused_i[t], tx_desc_ravail_i[t],
+                           targ_dev_i[t]};
     end
-    // - the transmit-data handshake and the Direct Read CCC data of the Virtual Targets that
-    //   are not implemented.
+    // - the Direct Read CCC data of the Virtual Targets that are not implemented.
     for (int unsigned t = NumTargets; t < MaxTargets; t++) begin
-      unused_targ_dev ^= ^{ccc_rsp.req_cdata[t]};
+      unused_targ_dev ^= ^{ccc_rsp.req_cdata[t], sink_rready[2*t + 3 -: 2]};
+    end
+  end
+  // - group descriptions are defined in a package, including non-existent Virtual Targets.
+  logic unused_grp_targs;
+  always_comb begin
+    unused_grp_targs = 1'b0;
+    for (int unsigned g = 0; g < NumGroups; g++) begin
+      for (int unsigned t = NumTargets; t < MaxTargets; t++) begin
+        unused_grp_targs ^= reg2hw_i.targ_group[g].targets.q[t];
+      end
     end
   end
   // - inputs that are not used yet (see the TODOs at their declarations).
