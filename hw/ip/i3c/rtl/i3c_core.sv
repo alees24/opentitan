@@ -1594,18 +1594,28 @@ module i3c_core
     .te_o             (targ_trx_te)
   );
 
+  // TODO(#31304):Placeholder timer signals on the Controller side.
+  wire ctrl_heart_beat = 1'b1;
+  logic dead_ctrl;
+  logic ctrl_poll_now;
+  // TODO(#31337):Placeholder timer signals on the Target side.
+  wire targ_heart_beat = 1'b1;
+  wire targ_ibi_nacked = 1'b1;
+  logic dead_targ;
+  logic targ_ibi_retry;
+
   // Interval timers driven by the IP block, reporting on timed events related to bus activity or
   // inactivity.
   i3c_timers #(
     .ClkFreq     (ClkFreq),
-    .NumTimers   (8),
+    .NumTimers   (12),
     .MaxDefaultW (16),
     // Shift distances, in bits, for each software-programmed override interval.
-    .TimerShifts (32'he_0_6_0_0_4_6_8),
+    .TimerShifts (48'he_0_6_0_0_4_6_8_0_0_0_0),
     // For each timer, the minimum interval to be measured is specified in microseconds,
     // allocating 16 bits to each timer in turn.
     //               50000, 1,  150, 1,   5,   60,  200, 800us
-    .DefaultInts (128'hc350_0001_0096_0001_0005_003c_00c8_0320)
+    .DefaultInts (192'hc350_0001_0096_0001_0005_003c_00c8_0320_0000_0000_0000_0000)
   ) u_timers (
     .clk_i       (clk_i),
     .rst_ni      (rst_ni),
@@ -1619,7 +1629,11 @@ module i3c_core
                    reg2hw_i.interval_time1.targ_trx_rst.q,
                    reg2hw_i.interval_time1.te0_recov.q,
                    reg2hw_i.interval_time1.targ_bus_idle.q,
-                   reg2hw_i.interval_time1.command_retry.q}),
+                   reg2hw_i.interval_time1.command_retry.q,
+                   reg2hw_i.interval_time2.dead_targ.q,
+                   reg2hw_i.interval_time2.dead_ctrl.q,
+                   reg2hw_i.interval_time2.poll_targets.q,
+                   reg2hw_i.interval_time2.ibi_retry.q}),
 
     // Resets for interval timers.
     .tm_resets_i ({rst_dead_bus,
@@ -1629,7 +1643,11 @@ module i3c_core
                    targ_trx_rst_trig,
                    targ_bus_active,
                    targ_bus_active,
-                   ctrl_cmd_nacked}),
+                   ctrl_cmd_nacked,
+                   targ_heart_beat,
+                   ctrl_heart_beat,
+                   ctrl_bus_active,
+                   targ_ibi_nacked}),
 
     // 'Time interval elapsed' signals.
     .tm_elapsed_o({dead_bus,
@@ -1639,7 +1657,11 @@ module i3c_core
                    targ_trx_prst_n,
                    te0_recov,
                    targ_bus_idle,
-                   ctrl_cmd_retry})
+                   ctrl_cmd_retry,
+                   dead_targ,
+                   dead_ctrl,
+                   ctrl_poll_now,
+                   targ_ibi_retry})
   );
 
   // I3C pattern detector:
@@ -2415,6 +2437,9 @@ module i3c_core
   assign unused_hci_addr = ^bufq_addr_i[TL_HCI][3:2];
   // - TODO(#31333): timers whose outputs are not yet routed to the core logic.
   logic unused_timers;
-  assign unused_timers = ^{read_stalled, te0_recov};
+  assign unused_timers = ^{read_stalled, te0_recov, ctrl_poll_now, targ_ibi_retry};
+  // - TODO(#31307): these timers need associated interrupts to inform software drivers.
+  logic unused_timers_dead;
+  assign unused_timers_dead = ^{dead_ctrl, dead_targ};
 
 endmodule

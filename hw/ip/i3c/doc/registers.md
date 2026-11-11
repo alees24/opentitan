@@ -30,48 +30,50 @@
 | i3c.[`CTRL_TIME_FM`](#ctrl_time_fm)                                         | 0x58     |        4 | Controller Timing Parameters for I2C Fast Mode signaling.                           |
 | i3c.[`INTERVAL_TIME0`](#interval_time0)                                     | 0x5c     |        4 | Interval Timers 0 register.                                                         |
 | i3c.[`INTERVAL_TIME1`](#interval_time1)                                     | 0x60     |        4 | Interval Timers 1 register.                                                         |
-| i3c.[`PHY_CONFIG`](#phy_config)                                             | 0x64     |        4 | PHY configuration                                                                   |
-| i3c.[`BLOCKED_ADDR`](#blocked_addr)                                         | 0x68     |        4 | Blocked target addresses.                                                           |
-| i3c.[`BUFFER_CTRL`](#buffer_ctrl)                                           | 0x6c     |        4 | Buffer control                                                                      |
-| i3c.[`BUFFER_STATUS`](#buffer_status)                                       | 0x70     |        4 | Buffer status                                                                       |
-| i3c.[`CTRL_TXBUF_CONFIG`](#ctrl_txbuf_config)                               | 0x74     |        4 | Controller TX Buffer Configuration                                                  |
-| i3c.[`CTRL_TXBUF_STATE`](#ctrl_txbuf_state)                                 | 0x78     |        4 | Controller TX Buffer State.                                                         |
-| i3c.[`CTRL_RXBUF_CONFIG`](#ctrl_rxbuf_config)                               | 0x7c     |        4 | Controller RX Buffer Configuration                                                  |
-| i3c.[`CTRL_RXBUF_STATE`](#ctrl_rxbuf_state)                                 | 0x80     |        4 | Controller RX Buffer State.                                                         |
-| i3c.[`COMMAND_QUEUE_CONFIG`](#command_queue_config)                         | 0x84     |        4 | Command Queue Configuration.                                                        |
-| i3c.[`COMMAND_QUEUE_STATE`](#command_queue_state)                           | 0x88     |        4 | Command Queue State.                                                                |
-| i3c.[`RESPONSE_QUEUE_CONFIG`](#response_queue_config)                       | 0x8c     |        4 | Response Queue Configuration.                                                       |
-| i3c.[`RESPONSE_QUEUE_STATE`](#response_queue_state)                         | 0x90     |        4 | Response Queue State.                                                               |
-| i3c.[`IBI_CONFIG`](#ibi_config)                                             | 0x94     |        4 | In-Band Interrupt Queue Configuration.                                              |
-| i3c.[`IBI_STATE`](#ibi_state)                                               | 0x98     |        4 | In-Band Interrupt Queue State.                                                      |
-| i3c.[`IBI_STAT_CONFIG`](#ibi_stat_config)                                   | 0x9c     |        4 | In-Band Status Descriptor FIFO Configuration.                                       |
-| i3c.[`IBI_STAT_STATE`](#ibi_stat_state)                                     | 0xa0     |        4 | In-Band Status Descriptor FIFO State.                                               |
-| i3c.[`TARG_TXBUF_CONFIG_0`](#targ_txbuf_config)                             | 0xa4     |        4 | Target TX Buffer Configuration.                                                     |
-| i3c.[`TARG_TXBUF_CONFIG_1`](#targ_txbuf_config)                             | 0xa8     |        4 | Target TX Buffer Configuration.                                                     |
-| i3c.[`TARG_TXBUF_CONFIG_2`](#targ_txbuf_config)                             | 0xac     |        4 | Target TX Buffer Configuration.                                                     |
-| i3c.[`TARG_TXBUF_CONFIG_3`](#targ_txbuf_config)                             | 0xb0     |        4 | Target TX Buffer Configuration.                                                     |
-| i3c.[`TARG_TXBUF_STATE_0`](#targ_txbuf_state)                               | 0xb4     |        4 | Target 0 TX Buffer State.                                                           |
-| i3c.[`TARG_TXBUF_STATE_1`](#targ_txbuf_state)                               | 0xb8     |        4 | Target 0 TX Buffer State.                                                           |
-| i3c.[`TARG_TXBUF_STATE_2`](#targ_txbuf_state)                               | 0xbc     |        4 | Target 0 TX Buffer State.                                                           |
-| i3c.[`TARG_TXBUF_STATE_3`](#targ_txbuf_state)                               | 0xc0     |        4 | Target 0 TX Buffer State.                                                           |
-| i3c.[`TARG_RXBUF_CONFIG`](#targ_rxbuf_config)                               | 0xc4     |        4 | Target RX Buffer Configuration                                                      |
-| i3c.[`TARG_RXBUF_STATE`](#targ_rxbuf_state)                                 | 0xc8     |        4 | Target RX Buffer State.                                                             |
-| i3c.[`TARG_IBI_CONFIG`](#targ_ibi_config)                                   | 0xcc     |        4 | Target In-Band Interrupt Payload Queue Configuration                                |
-| i3c.[`TARG_IBI_STATE`](#targ_ibi_state)                                     | 0xd0     |        4 | Target In-Band Interrupt Payload Queue State.                                       |
-| i3c.[`TARG_TXDESC_CONFIG_0`](#targ_txdesc_config)                           | 0xd4     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
-| i3c.[`TARG_TXDESC_CONFIG_1`](#targ_txdesc_config)                           | 0xd8     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
-| i3c.[`TARG_TXDESC_CONFIG_2`](#targ_txdesc_config)                           | 0xdc     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
-| i3c.[`TARG_TXDESC_CONFIG_3`](#targ_txdesc_config)                           | 0xe0     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
-| i3c.[`TARG_TXDESC_STATE_0`](#targ_txdesc_state)                             | 0xe4     |        4 | Target Transmission Descriptor Queue State.                                         |
-| i3c.[`TARG_TXDESC_STATE_1`](#targ_txdesc_state)                             | 0xe8     |        4 | Target Transmission Descriptor Queue State.                                         |
-| i3c.[`TARG_TXDESC_STATE_2`](#targ_txdesc_state)                             | 0xec     |        4 | Target Transmission Descriptor Queue State.                                         |
-| i3c.[`TARG_TXDESC_STATE_3`](#targ_txdesc_state)                             | 0xf0     |        4 | Target Transmission Descriptor Queue State.                                         |
-| i3c.[`TARG_RXDESC_CONFIG`](#targ_rxdesc_config)                             | 0xf4     |        4 | Target Reception Descriptor Queue Configuration.                                    |
-| i3c.[`TARG_RXDESC_STATE`](#targ_rxdesc_state)                               | 0xf8     |        4 | Target Reception Descriptor Queue State.                                            |
-| i3c.[`TARG_IBIDESC_CONFIG`](#targ_ibidesc_config)                           | 0xfc     |        4 | Target In-Band Interrupt Descriptor Queue Configuration.                            |
-| i3c.[`TARG_IBIDESC_STATE`](#targ_ibidesc_state)                             | 0x100    |        4 | Target In-Band Interrupt Descriptor Queue State.                                    |
-| i3c.[`TARG_ASYNC_CONFIG`](#targ_async_config)                               | 0x104    |        4 | Target Asynchronous Event Queue Configuration.                                      |
-| i3c.[`TARG_ASYNC_STATE`](#targ_async_state)                                 | 0x108    |        4 | Target Asynchronous Event Queue State.                                              |
+| i3c.[`INTERVAL_TIME2`](#interval_time2)                                     | 0x64     |        4 | Interval Timers 2 register.                                                         |
+| i3c.[`BUS_CONTROL`](#bus_control)                                           | 0x68     |        4 | Controller Bus Control Register.                                                    |
+| i3c.[`PHY_CONFIG`](#phy_config)                                             | 0x6c     |        4 | PHY configuration                                                                   |
+| i3c.[`BLOCKED_ADDR`](#blocked_addr)                                         | 0x70     |        4 | Blocked target addresses.                                                           |
+| i3c.[`BUFFER_CTRL`](#buffer_ctrl)                                           | 0x74     |        4 | Buffer control                                                                      |
+| i3c.[`BUFFER_STATUS`](#buffer_status)                                       | 0x78     |        4 | Buffer status                                                                       |
+| i3c.[`CTRL_TXBUF_CONFIG`](#ctrl_txbuf_config)                               | 0x7c     |        4 | Controller TX Buffer Configuration                                                  |
+| i3c.[`CTRL_TXBUF_STATE`](#ctrl_txbuf_state)                                 | 0x80     |        4 | Controller TX Buffer State.                                                         |
+| i3c.[`CTRL_RXBUF_CONFIG`](#ctrl_rxbuf_config)                               | 0x84     |        4 | Controller RX Buffer Configuration                                                  |
+| i3c.[`CTRL_RXBUF_STATE`](#ctrl_rxbuf_state)                                 | 0x88     |        4 | Controller RX Buffer State.                                                         |
+| i3c.[`COMMAND_QUEUE_CONFIG`](#command_queue_config)                         | 0x8c     |        4 | Command Queue Configuration.                                                        |
+| i3c.[`COMMAND_QUEUE_STATE`](#command_queue_state)                           | 0x90     |        4 | Command Queue State.                                                                |
+| i3c.[`RESPONSE_QUEUE_CONFIG`](#response_queue_config)                       | 0x94     |        4 | Response Queue Configuration.                                                       |
+| i3c.[`RESPONSE_QUEUE_STATE`](#response_queue_state)                         | 0x98     |        4 | Response Queue State.                                                               |
+| i3c.[`IBI_CONFIG`](#ibi_config)                                             | 0x9c     |        4 | In-Band Interrupt Queue Configuration.                                              |
+| i3c.[`IBI_STATE`](#ibi_state)                                               | 0xa0     |        4 | In-Band Interrupt Queue State.                                                      |
+| i3c.[`IBI_STAT_CONFIG`](#ibi_stat_config)                                   | 0xa4     |        4 | In-Band Status Descriptor FIFO Configuration.                                       |
+| i3c.[`IBI_STAT_STATE`](#ibi_stat_state)                                     | 0xa8     |        4 | In-Band Status Descriptor FIFO State.                                               |
+| i3c.[`TARG_TXBUF_CONFIG_0`](#targ_txbuf_config)                             | 0xac     |        4 | Target TX Buffer Configuration.                                                     |
+| i3c.[`TARG_TXBUF_CONFIG_1`](#targ_txbuf_config)                             | 0xb0     |        4 | Target TX Buffer Configuration.                                                     |
+| i3c.[`TARG_TXBUF_CONFIG_2`](#targ_txbuf_config)                             | 0xb4     |        4 | Target TX Buffer Configuration.                                                     |
+| i3c.[`TARG_TXBUF_CONFIG_3`](#targ_txbuf_config)                             | 0xb8     |        4 | Target TX Buffer Configuration.                                                     |
+| i3c.[`TARG_TXBUF_STATE_0`](#targ_txbuf_state)                               | 0xbc     |        4 | Target 0 TX Buffer State.                                                           |
+| i3c.[`TARG_TXBUF_STATE_1`](#targ_txbuf_state)                               | 0xc0     |        4 | Target 0 TX Buffer State.                                                           |
+| i3c.[`TARG_TXBUF_STATE_2`](#targ_txbuf_state)                               | 0xc4     |        4 | Target 0 TX Buffer State.                                                           |
+| i3c.[`TARG_TXBUF_STATE_3`](#targ_txbuf_state)                               | 0xc8     |        4 | Target 0 TX Buffer State.                                                           |
+| i3c.[`TARG_RXBUF_CONFIG`](#targ_rxbuf_config)                               | 0xcc     |        4 | Target RX Buffer Configuration                                                      |
+| i3c.[`TARG_RXBUF_STATE`](#targ_rxbuf_state)                                 | 0xd0     |        4 | Target RX Buffer State.                                                             |
+| i3c.[`TARG_IBI_CONFIG`](#targ_ibi_config)                                   | 0xd4     |        4 | Target In-Band Interrupt Payload Queue Configuration                                |
+| i3c.[`TARG_IBI_STATE`](#targ_ibi_state)                                     | 0xd8     |        4 | Target In-Band Interrupt Payload Queue State.                                       |
+| i3c.[`TARG_TXDESC_CONFIG_0`](#targ_txdesc_config)                           | 0xdc     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
+| i3c.[`TARG_TXDESC_CONFIG_1`](#targ_txdesc_config)                           | 0xe0     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
+| i3c.[`TARG_TXDESC_CONFIG_2`](#targ_txdesc_config)                           | 0xe4     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
+| i3c.[`TARG_TXDESC_CONFIG_3`](#targ_txdesc_config)                           | 0xe8     |        4 | Target Transmission Descriptor Queue Configuration.                                 |
+| i3c.[`TARG_TXDESC_STATE_0`](#targ_txdesc_state)                             | 0xec     |        4 | Target Transmission Descriptor Queue State.                                         |
+| i3c.[`TARG_TXDESC_STATE_1`](#targ_txdesc_state)                             | 0xf0     |        4 | Target Transmission Descriptor Queue State.                                         |
+| i3c.[`TARG_TXDESC_STATE_2`](#targ_txdesc_state)                             | 0xf4     |        4 | Target Transmission Descriptor Queue State.                                         |
+| i3c.[`TARG_TXDESC_STATE_3`](#targ_txdesc_state)                             | 0xf8     |        4 | Target Transmission Descriptor Queue State.                                         |
+| i3c.[`TARG_RXDESC_CONFIG`](#targ_rxdesc_config)                             | 0xfc     |        4 | Target Reception Descriptor Queue Configuration.                                    |
+| i3c.[`TARG_RXDESC_STATE`](#targ_rxdesc_state)                               | 0x100    |        4 | Target Reception Descriptor Queue State.                                            |
+| i3c.[`TARG_IBIDESC_CONFIG`](#targ_ibidesc_config)                           | 0x104    |        4 | Target In-Band Interrupt Descriptor Queue Configuration.                            |
+| i3c.[`TARG_IBIDESC_STATE`](#targ_ibidesc_state)                             | 0x108    |        4 | Target In-Band Interrupt Descriptor Queue State.                                    |
+| i3c.[`TARG_ASYNC_CONFIG`](#targ_async_config)                               | 0x10c    |        4 | Target Asynchronous Event Queue Configuration.                                      |
+| i3c.[`TARG_ASYNC_STATE`](#targ_async_state)                                 | 0x110    |        4 | Target Asynchronous Event Queue State.                                              |
 | i3c.[`HCI_VERSION`](#hci_version)                                           | 0x180    |        4 | HCI Version.                                                                        |
 | i3c.[`HC_CONTROL`](#hc_control)                                             | 0x184    |        4 | Host Controller Control.                                                            |
 | i3c.[`CONTROLLER_DEVICE_ADDR`](#controller_device_addr)                     | 0x188    |        4 | Controller Device Address.                                                          |
@@ -909,9 +911,77 @@ See `INTERVAL_TIME0` for details.
 |  15:8  |   rw   |   0x0   | TARG_BUS_IDLE | Adjustment to the interval of the Target Bus Idle timer. Default interval: 200 microseconds. Base weighting: 0x40 IP clock cycles.                                                       |
 |  7:0   |   rw   |   0x0   | COMMAND_RETRY | Adjustment to the interval after which NACKed commands are retried. Default interval: 800 microseconds. Base weighting: 0x100 IP clock cycles.                                           |
 
+## INTERVAL_TIME2
+Interval Timers 2 register.
+Time intervals are specified as two's complement 8-bit signed adjustments to the default values calculated by the hardware.
+
+The granularity of the adjustment is timer-dependent and clock frequency-dependent.
+The weightings given here apply to the base case of an IP clock frequency up to 64 MHz, inclusive.
+See `INTERVAL_TIME0` for details.
+- Offset: `0x64`
+- Reset default: `0x0`
+- Reset mask: `0xffffffff`
+
+### Fields
+
+```wavejson
+{"reg": [{"name": "IBI_RETRY", "bits": 8, "attr": ["rw"], "rotate": 0}, {"name": "POLL_TARGETS", "bits": 8, "attr": ["rw"], "rotate": 0}, {"name": "DEAD_CTRL", "bits": 8, "attr": ["rw"], "rotate": 0}, {"name": "DEAD_TARG", "bits": 8, "attr": ["rw"], "rotate": 0}], "config": {"lanes": 1, "fontsize": 10, "vspace": 80}}
+```
+
+|  Bits  |  Type  |  Reset  | Name                                          |
+|:------:|:------:|:-------:|:----------------------------------------------|
+| 31:24  |   rw   |   0x0   | [DEAD_TARG](#interval_time2--dead_targ)       |
+| 23:16  |   rw   |   0x0   | [DEAD_CTRL](#interval_time2--dead_ctrl)       |
+|  15:8  |   rw   |   0x0   | [POLL_TARGETS](#interval_time2--poll_targets) |
+|  7:0   |   rw   |   0x0   | [IBI_RETRY](#interval_time2--ibi_retry)       |
+
+### INTERVAL_TIME2 . DEAD_TARG
+Adjustment to the interval of the Dead Target timer.
+
+Default interval: 20 milliseconds.
+Base weighting: 0x800 IP clock cycles.
+
+### INTERVAL_TIME2 . DEAD_CTRL
+Adjustment to the interval of the Dead Controller timer.
+
+Default interval: 20 milliseconds.
+Base weighting: 0x800 IP clock cycles.
+
+### INTERVAL_TIME2 . POLL_TARGETS
+Adjustment to the interval of the Controller Passive Target polling timer.
+
+To support the detection of Passive Hot-Join Targets, the bus must not remain inactive indefinitely.
+When enabled in `
+
+Default interval: 10 milliseconds.
+Base weighting: 0x1000 IP clock cycles.
+
+### INTERVAL_TIME2 . IBI_RETRY
+Adjustment to the interval after which NACKed In-Band Interrupt requests are retried.
+
+Default interval: 800 microseconds.
+Base weighting: 0x100 IP clock cycles.
+
+## BUS_CONTROL
+Controller Bus Control Register.
+- Offset: `0x68`
+- Reset default: `0x0`
+- Reset mask: `0x80000000`
+
+### Fields
+
+```wavejson
+{"reg": [{"bits": 31}, {"name": "PASSIVE_POLL_EN", "bits": 1, "attr": ["rw"], "rotate": -90}], "config": {"lanes": 1, "fontsize": 10, "vspace": 170}}
+```
+
+|  Bits  |  Type  |  Reset  | Name            | Description                                                                        |
+|:------:|:------:|:-------:|:----------------|:-----------------------------------------------------------------------------------|
+|   31   |   rw   |   0x0   | PASSIVE_POLL_EN | Enable timer-driven polling for Passive Hot-Join Targets when the bus is inactive. |
+|  30:0  |        |         |                 | Reserved                                                                           |
+
 ## PHY_CONFIG
 PHY configuration
-- Offset: `0x64`
+- Offset: `0x6c`
 - Reset default: `0x1100003`
 - Reset mask: `0x8bf00003`
 
@@ -941,7 +1011,7 @@ PHY configuration
 Blocked target addresses.
 The controller will raise an error if any attempt is made to access a blocked target address.
 This feature is intended to safeguard against inadvertent accesses to any I2C device that may try to employ clock-stretching, but it may also be of use diagnostically.
-- Offset: `0x68`
+- Offset: `0x70`
 - Reset default: `0x7f007f`
 - Reset mask: `0x7f7f7f7f`
 
@@ -990,7 +1060,7 @@ The reset values of `MASK0` and `ADDR0` cannot yield a match, deactivating this 
 
 ## BUFFER_CTRL
 Buffer control
-- Offset: `0x6c`
+- Offset: `0x74`
 - Reset default: `0x0`
 - Reset mask: `0xb0000000`
 
@@ -1020,7 +1090,7 @@ Since half of the IP address space is typically 2 KiB but the message buffer is 
 
 ## BUFFER_STATUS
 Buffer status
-- Offset: `0x70`
+- Offset: `0x78`
 - Reset default: `0x0`
 - Reset mask: `0xc0000000`
 
@@ -1038,7 +1108,7 @@ Buffer status
 
 ## CTRL_TXBUF_CONFIG
 Controller TX Buffer Configuration
-- Offset: `0x74`
+- Offset: `0x7c`
 - Reset default: `0x607f0000`
 - Reset mask: `0x73ff03ff`
 
@@ -1059,7 +1129,7 @@ Controller TX Buffer Configuration
 
 ## CTRL_TXBUF_STATE
 Controller TX Buffer State.
-- Offset: `0x78`
+- Offset: `0x80`
 - Reset default: `0x0`
 - Reset mask: `0xc3ff03ff`
 
@@ -1080,7 +1150,7 @@ Controller TX Buffer State.
 
 ## CTRL_RXBUF_CONFIG
 Controller RX Buffer Configuration
-- Offset: `0x7c`
+- Offset: `0x84`
 - Reset default: `0x60ff0080`
 - Reset mask: `0x73ff03ff`
 
@@ -1101,7 +1171,7 @@ Controller RX Buffer Configuration
 
 ## CTRL_RXBUF_STATE
 Controller RX Buffer State.
-- Offset: `0x80`
+- Offset: `0x88`
 - Reset default: `0x800080`
 - Reset mask: `0xc3ff03ff`
 
@@ -1122,7 +1192,7 @@ Controller RX Buffer State.
 
 ## COMMAND_QUEUE_CONFIG
 Command Queue Configuration.
-- Offset: `0x84`
+- Offset: `0x8c`
 - Reset default: `0x1011f100`
 - Reset mask: `0xff3ff3ff`
 
@@ -1142,7 +1212,7 @@ Command Queue Configuration.
 
 ## COMMAND_QUEUE_STATE
 Command Queue State.
-- Offset: `0x88`
+- Offset: `0x90`
 - Reset default: `0x1000100`
 - Reset mask: `0xc3ff03ff`
 
@@ -1163,7 +1233,7 @@ Command Queue State.
 
 ## RESPONSE_QUEUE_CONFIG
 Response Queue Configuration.
-- Offset: `0x8c`
+- Offset: `0x94`
 - Reset default: `0x1012f120`
 - Reset mask: `0xff3ff3ff`
 
@@ -1183,7 +1253,7 @@ Response Queue Configuration.
 
 ## RESPONSE_QUEUE_STATE
 Response Queue State.
-- Offset: `0x90`
+- Offset: `0x98`
 - Reset default: `0x1200120`
 - Reset mask: `0xc3ff03ff`
 
@@ -1204,7 +1274,7 @@ Response Queue State.
 
 ## IBI_CONFIG
 In-Band Interrupt Queue Configuration.
-- Offset: `0x94`
+- Offset: `0x9c`
 - Reset default: `0x141af130`
 - Reset mask: `0xff3ff3ff`
 
@@ -1224,7 +1294,7 @@ In-Band Interrupt Queue Configuration.
 
 ## IBI_STATE
 In-Band Interrupt Queue State.
-- Offset: `0x98`
+- Offset: `0xa0`
 - Reset default: `0x1300130`
 - Reset mask: `0xc3ff03ff`
 
@@ -1245,7 +1315,7 @@ In-Band Interrupt Queue State.
 
 ## IBI_STAT_CONFIG
 In-Band Status Descriptor FIFO Configuration.
-- Offset: `0x9c`
+- Offset: `0xa4`
 - Reset default: `0x1cf1b0`
 - Reset mask: `0x3ff3ff`
 
@@ -1264,7 +1334,7 @@ In-Band Status Descriptor FIFO Configuration.
 
 ## IBI_STAT_STATE
 In-Band Status Descriptor FIFO State.
-- Offset: `0xa0`
+- Offset: `0xa8`
 - Reset default: `0x1b001b0`
 - Reset mask: `0xc3ff03ff`
 
@@ -1292,10 +1362,10 @@ Target TX Buffer Configuration.
 
 | Name                | Offset   |
 |:--------------------|:---------|
-| TARG_TXBUF_CONFIG_0 | 0xa4     |
-| TARG_TXBUF_CONFIG_1 | 0xa8     |
-| TARG_TXBUF_CONFIG_2 | 0xac     |
-| TARG_TXBUF_CONFIG_3 | 0xb0     |
+| TARG_TXBUF_CONFIG_0 | 0xac     |
+| TARG_TXBUF_CONFIG_1 | 0xb0     |
+| TARG_TXBUF_CONFIG_2 | 0xb4     |
+| TARG_TXBUF_CONFIG_3 | 0xb8     |
 
 
 ### Fields
@@ -1320,10 +1390,10 @@ Target 0 TX Buffer State.
 
 | Name               | Offset   |
 |:-------------------|:---------|
-| TARG_TXBUF_STATE_0 | 0xb4     |
-| TARG_TXBUF_STATE_1 | 0xb8     |
-| TARG_TXBUF_STATE_2 | 0xbc     |
-| TARG_TXBUF_STATE_3 | 0xc0     |
+| TARG_TXBUF_STATE_0 | 0xbc     |
+| TARG_TXBUF_STATE_1 | 0xc0     |
+| TARG_TXBUF_STATE_2 | 0xc4     |
+| TARG_TXBUF_STATE_3 | 0xc8     |
 
 
 ### Fields
@@ -1343,7 +1413,7 @@ Target 0 TX Buffer State.
 
 ## TARG_RXBUF_CONFIG
 Target RX Buffer Configuration
-- Offset: `0xc4`
+- Offset: `0xcc`
 - Reset default: `0x36f02d0`
 - Reset mask: `0x3ff03ff`
 
@@ -1362,7 +1432,7 @@ Target RX Buffer Configuration
 
 ## TARG_RXBUF_STATE
 Target RX Buffer State.
-- Offset: `0xc8`
+- Offset: `0xd0`
 - Reset default: `0x2d002d0`
 - Reset mask: `0xc3ff03ff`
 
@@ -1383,7 +1453,7 @@ Target RX Buffer State.
 
 ## TARG_IBI_CONFIG
 Target In-Band Interrupt Payload Queue Configuration
-- Offset: `0xcc`
+- Offset: `0xd4`
 - Reset default: `0x3af0370`
 - Reset mask: `0x3ff03ff`
 
@@ -1402,7 +1472,7 @@ Target In-Band Interrupt Payload Queue Configuration
 
 ## TARG_IBI_STATE
 Target In-Band Interrupt Payload Queue State.
-- Offset: `0xd0`
+- Offset: `0xd8`
 - Reset default: `0x3700370`
 - Reset mask: `0xc3ff03ff`
 
@@ -1430,10 +1500,10 @@ Target Transmission Descriptor Queue Configuration.
 
 | Name                 | Offset   |
 |:---------------------|:---------|
-| TARG_TXDESC_CONFIG_0 | 0xd4     |
-| TARG_TXDESC_CONFIG_1 | 0xd8     |
-| TARG_TXDESC_CONFIG_2 | 0xdc     |
-| TARG_TXDESC_CONFIG_3 | 0xe0     |
+| TARG_TXDESC_CONFIG_0 | 0xdc     |
+| TARG_TXDESC_CONFIG_1 | 0xe0     |
+| TARG_TXDESC_CONFIG_2 | 0xe4     |
+| TARG_TXDESC_CONFIG_3 | 0xe8     |
 
 
 ### Fields
@@ -1458,10 +1528,10 @@ Target Transmission Descriptor Queue State.
 
 | Name                | Offset   |
 |:--------------------|:---------|
-| TARG_TXDESC_STATE_0 | 0xe4     |
-| TARG_TXDESC_STATE_1 | 0xe8     |
-| TARG_TXDESC_STATE_2 | 0xec     |
-| TARG_TXDESC_STATE_3 | 0xf0     |
+| TARG_TXDESC_STATE_0 | 0xec     |
+| TARG_TXDESC_STATE_1 | 0xf0     |
+| TARG_TXDESC_STATE_2 | 0xf4     |
+| TARG_TXDESC_STATE_3 | 0xf8     |
 
 
 ### Fields
@@ -1481,7 +1551,7 @@ Target Transmission Descriptor Queue State.
 
 ## TARG_RXDESC_CONFIG
 Target Reception Descriptor Queue Configuration.
-- Offset: `0xf4`
+- Offset: `0xfc`
 - Reset default: `0x3df03d0`
 - Reset mask: `0x3ff03ff`
 
@@ -1500,7 +1570,7 @@ Target Reception Descriptor Queue Configuration.
 
 ## TARG_RXDESC_STATE
 Target Reception Descriptor Queue State.
-- Offset: `0xf8`
+- Offset: `0x100`
 - Reset default: `0x3d003d0`
 - Reset mask: `0xc3ff03ff`
 
@@ -1521,7 +1591,7 @@ Target Reception Descriptor Queue State.
 
 ## TARG_IBIDESC_CONFIG
 Target In-Band Interrupt Descriptor Queue Configuration.
-- Offset: `0xfc`
+- Offset: `0x104`
 - Reset default: `0x3ef03e0`
 - Reset mask: `0x3ff03ff`
 
@@ -1540,7 +1610,7 @@ Target In-Band Interrupt Descriptor Queue Configuration.
 
 ## TARG_IBIDESC_STATE
 Target In-Band Interrupt Descriptor Queue State.
-- Offset: `0x100`
+- Offset: `0x108`
 - Reset default: `0x3e003e0`
 - Reset mask: `0xc3ff03ff`
 
@@ -1561,7 +1631,7 @@ Target In-Band Interrupt Descriptor Queue State.
 
 ## TARG_ASYNC_CONFIG
 Target Asynchronous Event Queue Configuration.
-- Offset: `0x104`
+- Offset: `0x10c`
 - Reset default: `0x3ff03f0`
 - Reset mask: `0x3ff03ff`
 
@@ -1580,7 +1650,7 @@ Target Asynchronous Event Queue Configuration.
 
 ## TARG_ASYNC_STATE
 Target Asynchronous Event Queue State.
-- Offset: `0x108`
+- Offset: `0x110`
 - Reset default: `0x3f003f0`
 - Reset mask: `0xc3ff03ff`
 
