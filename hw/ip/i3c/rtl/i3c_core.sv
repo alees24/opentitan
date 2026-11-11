@@ -416,6 +416,14 @@ module i3c_core
   // Controller Error counting (CE[3:0], Table 44).
   logic [3:0] ctrl_error;
 
+  // Controller polling of Targets:
+  // - for Passive Hot-Join Targets, and
+  // - for detecting unexpected disconnections.
+  logic ctrl_poll_now;
+
+  // Controller Heart Beat signal.
+  logic ctrl_heart_beat;
+
   // Controller core.
   i3c_controller #(
     .ClkFreq        (ClkFreq),
@@ -449,6 +457,9 @@ module i3c_core
     .ac_current_own_o  (ac_current_own),
     .dct_idx_o         (dct_idx),
     .hc_control_o      (hw2reg_o.hc_control),
+
+    // Heart beat signal from the Controller core.
+    .heart_beat_o      (ctrl_heart_beat),
 
     // Command Queue access.
     .cmd_desc_rready_o (fifo_in[FIFO_CmdQ].rready),
@@ -526,6 +537,9 @@ module i3c_core
     // Timing parameters; target- and transfer-invariant.
     .tcas_d2_o         (ctrl_tcas_d2),
     .tcbp_d2_o         (ctrl_tcbp_d2),
+
+    // Polling of Targets; Passive Hot-Join and unexpected disconnections.
+    .poll_now_i        (ctrl_poll_now),
 
     // Retrying of NACKed commands.
     .cmd_nacked_o      (ctrl_cmd_nacked),
@@ -1595,9 +1609,7 @@ module i3c_core
   );
 
   // TODO(#31304):Placeholder timer signals on the Controller side.
-  wire ctrl_heart_beat = 1'b1;
   logic dead_ctrl;
-  logic ctrl_poll_now;
   // TODO(#31337):Placeholder timer signals on the Target side.
   wire targ_heart_beat = 1'b1;
   wire targ_ibi_nacked = 1'b1;
@@ -1611,11 +1623,11 @@ module i3c_core
     .NumTimers   (12),
     .MaxDefaultW (16),
     // Shift distances, in bits, for each software-programmed override interval.
-    .TimerShifts (48'he_0_6_0_0_4_6_8_0_0_0_0),
+    .TimerShifts (48'he_0_6_0_0_4_6_8_b_b_c_8),
     // For each timer, the minimum interval to be measured is specified in microseconds,
     // allocating 16 bits to each timer in turn.
-    //               50000, 1,  150, 1,   5,   60,  200, 800us
-    .DefaultInts (192'hc350_0001_0096_0001_0005_003c_00c8_0320_0000_0000_0000_0000)
+    //               50000, 1,   150, 1,   5,   60,  200,800us,20ms,20ms,10ms,800us
+    .DefaultInts (192'hc350_0001_0096_0001_0005_003c_00c8_0320_4e20_4e20_2710_0320)
   ) u_timers (
     .clk_i       (clk_i),
     .rst_ni      (rst_ni),
@@ -2437,7 +2449,7 @@ module i3c_core
   assign unused_hci_addr = ^bufq_addr_i[TL_HCI][3:2];
   // - TODO(#31333): timers whose outputs are not yet routed to the core logic.
   logic unused_timers;
-  assign unused_timers = ^{read_stalled, te0_recov, ctrl_poll_now, targ_ibi_retry};
+  assign unused_timers = ^{read_stalled, te0_recov, targ_ibi_retry};
   // - TODO(#31307): these timers need associated interrupts to inform software drivers.
   logic unused_timers_dead;
   assign unused_timers_dead = ^{dead_ctrl, dead_targ};
