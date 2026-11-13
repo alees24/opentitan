@@ -379,8 +379,8 @@ module i3c_target_trx
     logic [8:0] data_pq;
     logic rlast;
 
-    sel_valid = (trans.targ_id < NumTargets) & (ccc_command ? trx_ctvalid_i
-                                                            : trx_dvalid_i[sel_targ_id]);
+    sel_valid = ibi_sending ? trx_avalid_i :
+      ((trans.targ_id < NumTargets) & (ccc_command ? trx_ctvalid_i : trx_dvalid_i[sel_targ_id]));
     data_nq = ccc_command ? trx_ctreq_i.rdata_nq[sel_targ_id] : trx_dreq_i[sel_targ_id].rdata_nq;
     data_pq = ccc_command ? trx_ctreq_i.rdata_pq[sel_targ_id] : trx_dreq_i[sel_targ_id].rdata_pq;
     rlast   = ccc_command ? trx_ctreq_i.rlast[sel_targ_id][0] : trx_dreq_i[sel_targ_id].rlast[0];
@@ -394,6 +394,8 @@ module i3c_target_trx
     // For HDR-DDR, even-indexed bits are SCL-posedge clocked, i.e. including the LSB.
     tx_data_pq[0] = data_pq;
   end
+
+  logic tx_sdr_ending;
 
   typedef enum logic [4:0] {
     State_Idle,
@@ -493,6 +495,11 @@ module i3c_target_trx
 
   // -------------------------- Arbitration Requests from Target core ------------------------------
 
+  // Is the current IBI arbitration request carrying a Mandatory Data Byte (MDB)?
+  // - if this the first datum received, this tells us whether to start push-pull transmission.
+  // - for any subsequent IBI payload bytes we proceed/stop according to the T-bit from `rdata_nq`.
+  wire ibi_data_is_mdb = trx_areq_i.is_mdb;
+
   // Arbitration is lost if we're requesting a '1' but the line was pulled to '0'.
   wire arb_lost = bus_drv_o.sda[0] & !sda_pq[0][0];
 
@@ -500,12 +507,19 @@ module i3c_target_trx
   assign arb_won = &{(state_q == State_ArbCont), penult_bit, !arb_lost};
 
   // Shall we arbitrate on the bus when Start signaling is detected?
-  // - Note: arbitration is not permitted for Repeated Starts (Sr).
+  // - Note: arbitration is not permitted following a Repeated Start (Sr).
   wire arb_reqd = trx_avalid_i;
-  assign trx_aready_o = arb_won;
 
-  // Does the current IBI have _any_ payload bytes, including the Mandatory Data Byte (MDB)?
-  wire ibi_payload = trx_areq_i.payload;
+  // Notification of arbitration win, and/or request for additional IBI payload data.
+  // - the MDB, despite its name, is not always present as part of an IBI; if the MDB is present
+  //   then we defer acknowledgement of the first unit of the IBI request until it has been accepted
+  wire arb_ready_d = ibi_starting | (ibi_sending & last_bit & ~tx_sdr_ending);
+  logic arb_ready_q;
+  always_ff @(posedge scl_ni or negedge rst_ni) begin
+    if (!rst_ni) arb_ready_q <= 1'b0;
+    else arb_ready_q <= arb_ready_d;
+  end
+  assign trx_aready_o = arb_ready_q;
 
   // -----------------------------------------------------------------------------------------------
 
@@ -545,14 +559,13 @@ module i3c_target_trx
   ///
   // Also, as a safety measure, we stop transmitting if we have indicated that there is no more
   // data, whatever we happen to sample.
-  wire tx_sdr_ending = ~&{sda_nq[0][8], sda_i[0], tx_avail};
+  assign tx_sdr_ending = ~&{sda_nq[0][8], sda_i[0], tx_avail};
 
   // Starting transmission of a new data unit.
   wire tx_starting = &{tx_avail, trans.rnw, last_bit,
                        |{state_q inside {State_AckAddr, State_RxCmdDDR, State_TxDataDDR},
                          state_q == State_TxSDR & !tx_sdr_ending}} ||
-                     // TODO(#31065): Start of IBI transmission, in response to ACK from Controller.
-                     &{state_q == State_WaitAck, last_bit, !sda_i[0]};
+                       ibi_starting;
 
   // Ending transmission of the current data unit (Note: may also be starting another).
   wire tx_ending = last_bit & |{state_q inside {State_AckAddr, State_TxCRCDDR},
@@ -672,7 +685,7 @@ module i3c_target_trx
                                               : (trans.rnw ? State_TxSDR : State_RxSDR);
         // Awaiting a response from the Active Controller to an IBI request.
         // - if accepted (ACK rather than NACK)
-        State_WaitAck: state_d = (ack_recvd & ibi_payload) ? State_TxSDR : State_WaitSrP;
+        State_WaitAck: state_d = (ack_recvd & ibi_data_is_mdb) ? State_TxSDR : State_WaitSrP;
 
         // --- Receiving in SDR mode ---
         State_RxSDR: begin

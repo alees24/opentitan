@@ -647,7 +647,7 @@ module i3c_target
   );
 
   // Interrupt generation.
-  // Gate all interrupts that depend on a threshold value with the threshold value being non-zero.
+  // - where a threshold is used, a threshold of zero deactivates the interrupt.
   always_comb begin
     // Reception uses a single buffer for all Targets.
     intr_o = '0;  // Note: this provides drivers for non-extant Virtual Targets.
@@ -657,7 +657,8 @@ module i3c_target
     intr_o.ibi_status_thld = |reg2hw_i.targ_queue_thld_ctrl.ibi_status_thld.q &&
                              (32'(ibi_desc_ravail_i) >=
                               32'(reg2hw_i.targ_queue_thld_ctrl.ibi_status_thld.q));
-    intr_o.async_evt_ready = !async_empty_i;  // TODO: Need to reconsider if CCC becomes multi-desc?
+    // TODO(#31337): reporting of CCC data requires multiple DWORDs in the async event queue.
+    intr_o.async_evt_ready = !async_empty_i;
     intr_o.transfer_abort  = transfer_aborted;
     intr_o.transfer_err    = transfer_err;
     intr_o.rx_desc_ovf     = rx_desc_ovf;
